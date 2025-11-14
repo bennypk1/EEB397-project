@@ -17,5 +17,14 @@ function is_valid(grid_point)
     c1 = grid_point[2] > (2 - 1/grid_point[1])
     c2 = grid_point[1] > 0.025
     c3 = grid_point[2] > 0.025
-    return c1 && c2 && c3
+    c4 = grid_point[1] < 1
+    c5 = grid_point[2] < 1
+    return c1 && c2 && c3 && c4 && c5
+end
+
+# Convert [s, qₛₛ] to [pᵤ, pᵤᵤ]
+function convert_landscape_params(landscape_params)
+    this_pᵤ = 1 - landscape_params[1]
+    this_pᵤᵤ = this_pᵤ - landscape_params[1] * (1 - landscape_params[2])
+    return(this_pᵤ, this_pᵤᵤ)
 end
