@@ -3,20 +3,20 @@ using Plots
 using DataFrames
 include("helper_functions.jl")
 
-# Replace function body with one of the ODEs in plot_ODE1.jl
+# Replace function body with one of the ODEs
 function testODE!(dP, init, params, t)
     c₁, c₂, c₃, e₁, e₂, e₃, μ₂₁, μ₃₂, s, ρ = params
     P₁, P₂, P₃, P₁₁, Pᵤ₁ = init
     dP[1] = c₁ * (P₁ - P₁₁ - Pᵤ₁) - e₁ * P₁ - μ₂₁ * P₂
-    dP[2] = c₂ * (P₁ - P₂) * P₂ * (ρ / s) - (e₁ + e₂ + μ₂₁) * P₂
-    dP[4] = c₁ * (P₁ - P₁₁ - Pᵤ₁) * (1/4 + 3/4 * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁))) - P₁₁ * (e₁ + μ₂₁ * (P₂ / P₁))
-    dP[5] = c₁ * (3/4) * (s - ρ - Pᵤ₁) * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁)) - Pᵤ₁ * (e₁ + μ₂₁ * (P₂ / P₁))
+    dP[2] = c₂ * (P₁ - P₂) * P₂ - (e₁ + e₂) * P₂ - μ₂₁ * P₂
+    dP[4] = c₁ * (P₁ - P₁₁ - Pᵤ₁) * (1/4 + 3/4 * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁))) - P₁₁ * (e₁ + μ₂₁ * (P₂))
+    dP[5] = c₁ * (3/4) * (s - ρ - Pᵤ₁) * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁)) - Pᵤ₁ * (e₁ + μ₂₁ * (P₂))
 end
 
 # Single solution over time
 this_s = 0.6
 this_q = 0.75
-fixed_params = [1, 1, 1, 0.05, 0.05, 0.05, 0.0025, 0.0025, this_s, this_s * this_q]
+fixed_params = [3, 1, 1, 0.05, 0.05, 0.05, 0.0025, 0.0025, this_s, this_s * this_q]
 tm_spn = [0, 100]
 initial_density = [0.01, 0.005, 0.002, 0.002, 0.005]
 this_prob = ODEProblem(testODE!, initial_density, tm_spn, fixed_params)
