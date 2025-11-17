@@ -3,9 +3,6 @@ using Plots
 using DataFrames
 include("helper_functions.jl")
 
-eps = 0.9831
-eps100 = 0.9831
-eps200 = 0.5
 # Replace function body with one of the ODEs
 function testODE!(dP, P, params, t)
     c₁, c₂, e₁, e₂, μ, pᵤ, pᵤᵤ, z = params
