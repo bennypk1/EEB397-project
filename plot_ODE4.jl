@@ -46,7 +46,7 @@ end
 this_s = 0.59
 this_q = 0.5
 conv_params = convert_landscape_params([this_s, this_q])
-fixed_params = [1, 1, 0.05, 0.05, 0.0025, conv_params[1], conv_params[2], 4, 1, 0, -1]
+fixed_params = [1, 1, 0.05, 0.05, 0.0025, conv_params[1], conv_params[2], 4, 1, 0.1, 0]
 tm_spn = [0, 100]
 initial_density = [0.01, 0.005, 0.002, 0.005]
 this_prob = ODEProblem(testODE!, initial_density, tm_spn, fixed_params)
