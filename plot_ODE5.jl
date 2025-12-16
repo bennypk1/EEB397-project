@@ -66,8 +66,8 @@ function testODE!(dP, P, params, t)
     # [ODE] main dynamics
     dP[1] = propagation + seeding - intrinsic_extinctionR - density_dependent_extinctionR - predationR2 - (I₍₁₃₎) * predationR3
     dP[2] = dispersal21 - intrinsic_extinction21 - density_dependent_extinction21 - (I₍₂₃₎) * predation23
-    dP[3] = creation23_dispersal32 + (I₍₁₃₎) * creation23_dispersal31 + (I₍₁₃₎) * creation23_2outcompetes3 - loss23_intrinsic_extinction - loss23_density_dependent_extinction
-    dP[4] = creation13_dispersal31 + (I₍₂₃₎) * creation13_dispersal32 + (I₍₂₃₎) * creation13_extinction2 - loss13_intrinsic_extinction - loss13_density_dependent_extinction - creation23_2outcompetes3
+    dP[3] = (I₍₂₃₎) * (creation23_dispersal32 + (I₍₁₃₎) * creation23_dispersal31 + (I₍₁₃₎) * creation23_2outcompetes3 - loss23_intrinsic_extinction - loss23_density_dependent_extinction)
+    dP[4] = (I₍₁₃₎) * (creation13_dispersal31 + (I₍₂₃₎) * creation13_dispersal32 + (I₍₂₃₎) * creation13_extinction2 - loss13_intrinsic_extinction - loss13_density_dependent_extinction - creation23_2outcompetes3)
     # [ODE] moment closure dynamics
     dP[5] = P₁ₛ_propagated_direct +  P₁ₛ_propagated_other + P₁ₛ_seeded - P₁₁_predated2 - (I₍₁₃₎) * P₁₁_predated3 - P₁₁_intrinsic_death - P₁₁_density_dependent_death
     dP[6] = Pₛᵤ_propagated + Pₛᵤ_seeded - Pᵤ₁_predated2 - (I₍₁₃₎) * Pᵤ₁_predated3 - Pᵤ₁_intrinsic_death - Pᵤ₁_density_dependent_death
@@ -91,8 +91,8 @@ end
 
 fixed_parameters = [1, 1, 1, 1, 0.05, 0.05, 0.05, 0.05, 0.0025, 0.0025, 0.0025, 4] # c, e, μ, z
 initial_densities = [0.01, 0.005, 0.0025, 0.0025, 0.002, 0.005] # starting P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁
-resource_dynamics = [0, 1, 0] # a, b, g
-trophic_configuration = [0, 0] # I₍₂₃₎, I₍₁₃₎
+resource_dynamics = [1, 0, 0] # a, b, g
+trophic_configuration = [1, 1] # I₍₂₃₎, I₍₁₃₎
 time_span = [0, 100]
 grain = 0.01
 
@@ -107,10 +107,14 @@ this_params = vcat(fixed_parameters,        # c, e, μ, z
                    conv_params,             # pᵤ, pᵤᵤ
                    resource_dynamics,       # a, b, g
                    trophic_configuration)   # I₍₂₃₎, I₍₁₃₎
-print(length(conv_params))
-this_prob = ODEProblem(testODE!, initial_densities, time_span, this_params)
+this_init = get_init_from_trophic_config(initial_densities, trophic_configuration)
+this_prob = ODEProblem(testODE!, this_init, time_span, this_params)
 this_sol = solve(this_prob, AutoVern7(Rodas5()); reltol=1e-8, abstol=1e-10)
-p1 = plot(this_sol)
+labels = ["P₁", "P₍₁₂₎", "P₍₂₃₎", "P₍₁₃₎", "P₁₁", "Pᵤ₁"]
+p1 = plot()
+for i in 1:length(this_sol.u[1])
+    plot!(p1, this_sol.t, getindex.(this_sol.u, i), label = labels[i])
+end
 
 #################################################################################################################################
 # LIAO-TYPE HEAT MAPS - DATA GENERATION
@@ -155,27 +159,17 @@ Z_3  = reshape(data.Density3,  n, n)
 Z_23 = reshape(data.Density23, n, n)
 Z_13 = reshape(data.Density13, n, n)
 
-pR = heatmap(grid_length, grid_length, Z_R,
-             xlabel = "Availability", ylabel = "Connectivity", colorbar_title = "Resource Density (P₁)",
-             aspect_ratio = 1, clims = (0,1)
-)
-p2 = heatmap(grid_length, grid_length, Z_2,
-             xlabel = "Availability", ylabel = "Connectivity", colorbar_title = "Consumer Density (P₂)",
-             aspect_ratio = 1, clims = (0,1)
-)
-p3 = heatmap(grid_length, grid_length, Z_3,
-             xlabel = "Availability", ylabel = "Connectivity", colorbar_title = "Tertiary Density (P₃)",
-             aspect_ratio = 1, clims = (0,1)
-)
-p23 = heatmap(grid_length, grid_length, Z_23,
-              xlabel = "Availability", ylabel = "Connectivity", colorbar_title = "2-3 Link Density (P₍₂₃₎)",
-              aspect_ratio = 1, clims = (0,1)
-)
-p13 = heatmap(grid_length, grid_length, Z_13,
-              xlabel = "Availability", ylabel = "Connectivity", colorbar_title = "1-3 Link Density (P₍₁₃₎)",
-              aspect_ratio = 1, clims = (0,1)
-)
+pR = heatmap(grid_length, grid_length, Z_R, title = "Resource Density (P₁)",
+             aspect_ratio = 1, c = cgrad(:jet, scale = :linear), clims = (0,1))
+p2 = heatmap(grid_length, grid_length, Z_2, title = "Consumer Density (P₂)",
+             aspect_ratio = 1, c = cgrad(:jet, scale = :linear), clims = (0,1))
+p3 = heatmap(grid_length, grid_length, Z_3, title = "Tertiary Density (P₃)",
+             aspect_ratio = 1, c = cgrad(:jet, scale = :linear), clims = (0,1))
+p23 = heatmap(grid_length, grid_length, Z_23, title = "2-3 Link Density (P₍₂₃₎)",
+             aspect_ratio = 1, c = cgrad(:jet, scale = :linear), clims = (0,1))
+p13 = heatmap(grid_length, grid_length, Z_13, title = "1-3 Link Density (P₍₁₃₎)",
+             aspect_ratio = 1, c = cgrad(:jet, scale = :linear), clims = (0,1))
 
-plot(p1, pR, p2, p3, p23, p13,
-     layout = @layout([a; b c d; e f g]),
+plot(pR, p2, p3, p1, p23, p13,
+     layout = @layout([a b c ; d e f]),
      size = (1200, 900))
