@@ -26,5 +26,5 @@ end
 function convert_landscape_params(landscape_params)
     this_pᵤ = 1 - landscape_params[1]
     this_pᵤᵤ = this_pᵤ - landscape_params[1] * (1 - landscape_params[2])
-    return(this_pᵤ, this_pᵤᵤ)
+    return([this_pᵤ, this_pᵤᵤ])
 end

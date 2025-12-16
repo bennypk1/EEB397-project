@@ -1,5 +1,5 @@
 
-function everything!(dP, P, params, t)
+function everythingCR!(dP, P, params, t)
     c₁, c₂, e₁, e₂, μ, pᵤ, pᵤᵤ, z, a, b, g = params
     P₁, P₂, P₁₁, Pᵤ₁ = P
     # probabilities
@@ -20,7 +20,7 @@ function everything!(dP, P, params, t)
     # pair dynanmics 1-1
     P₁ₛ_propagated_direct = P₁ₛ * (a * c₁ / z)
     P₁ₛ_propagated_other = P₁ₛ * (a * c₁ * Q₁ₛ * (z-1)/z)
-    P₁ₛ_seeded = P₁ₛ * (b * c₁ * p₁)
+    P₁ₛ_seeded = P₁ₛ * (b * c₁ * P₁)
     P₁₁_predated = P₁₁ * μ * (P₂ / P₁)
     P₁₁_intrinsic_death = P₁₁ * e₁
     P₁₁_density_dependent_death = P₁₁ * (g * e₁) * ((Q₁₁ * (z-1)/z) + (1/z))
