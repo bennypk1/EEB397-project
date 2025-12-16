@@ -28,3 +28,12 @@ function convert_landscape_params(landscape_params)
     this_pᵤᵤ = this_pᵤ - landscape_params[1] * (1 - landscape_params[2])
     return([this_pᵤ, this_pᵤᵤ])
 end
+
+# performance function for plot_ODE5
+function get_init_from_trophic_config(initial_densities, trophic_configuration)
+    P1, P12, P23, P13, P11, Pu1 = initial_densities
+    I23, I13 = trophic_configuration
+    P23_init = I23 == 1 ? P23 : 0.0
+    P13_init = I13 == 1 ? P13 : 0.0
+    return [P1, P12, P23_init, P13_init, P11, Pu1]
+end

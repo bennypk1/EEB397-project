@@ -77,13 +77,6 @@ end
 # PARAMETETERS
 #################################################################################################################################
 
-# Convert [s, qₛₛ] to [pᵤ, pᵤᵤ]
-function convert_landscape_params(landscape_params)
-    this_pᵤ = 1 - landscape_params[1]
-    this_pᵤᵤ = this_pᵤ - landscape_params[1] * (1 - landscape_params[2])
-    return([this_pᵤ, this_pᵤᵤ])
-end
-
 # Trophic configurations:
 #   [0, 0] : consumer-resource
 #   [1, 0] : food chain
@@ -135,12 +128,13 @@ for point in grid
         new_row = (point[1], point[2], NaN, NaN, NaN, NaN, NaN)
         push!(data, new_row)
     else
+        curr_init = get_init_from_trophic_config(initial_densities, trophic_configuration)
         conv_point = convert_landscape_params([point[1], point[2]])
         curr_params = vcat(fixed_parameters,        # c, e, μ, z
                            conv_point,              # pᵤ, pᵤᵤ
                            resource_dynamics,       # a, b, g
                            trophic_configuration)   # I₍₂₃₎, I₍₁₃₎
-        curr_prob = ODEProblem(testODE!, initial_densities, time_span, curr_params)
+        curr_prob = ODEProblem(testODE!, curr_init, time_span, curr_params)
         curr_sol = solve(curr_prob, AutoVern7(Rodas5()); reltol=1e-8, abstol=1e-10)
         sol_end = curr_sol[end]
         new_row = (point[1], point[2], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4])
