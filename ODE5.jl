@@ -31,7 +31,7 @@ function everything!(dP, P, params, t)
 
     # 1) basal resource dynamics
     propagation = (a * c₁ * P₁ₛ)
-    seeding = (b * c₁ * Pₛ)
+    seeding = (b * c₁ * Pₛ) * P₁
     intrinsic_extinctionR = (e₁ * P₁)
     density_dependent_extinctionR = P₁ * (g * e₁ * Q₁₁)
     predationR2 = (μ₂₁ * P₍₁₂₎)
