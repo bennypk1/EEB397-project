@@ -36,7 +36,7 @@ end
 function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
     c1 = is_proportion(init)
     c2 = is_timespan_valid(timespan)
-    c3 = grain < 1 && grain > 0
+    c3 = is_proportion(grain)
     return c1 && c2 && c3
 end
 
@@ -78,6 +78,11 @@ function is_proportion(v)
         end
     end
     return true
+end
+
+# check if a scalar is a proportion
+function is_proportion(s)
+    return s <= 1 && s >= 0
 end
 
 # check validity of timespan
