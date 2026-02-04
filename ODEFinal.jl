@@ -9,157 +9,201 @@
 # 5) species can only exist in patches where their food is present
 
 function Resource!(dP, P, params, t)
-    # parameters and variables
-    c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
-    P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
-    # derived variables
-    S = 1 - U
-    pᵤ = U
-    pᵤᵤ = F
-    p₀ = 1 - P₁ - pᵤ
-    q₁₁ = P₁₁ / P₁
-    qᵤ₁ = Pᵤ₁ / P₁
-    p₀₁ = P₁ - P₁₁ -  Pᵤ₁
-    pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
-    q₁₀ = p₀₁ / p₀
-    # main ODEs
-    dP[1] = α * ( 1 - q₁₁ - qᵤ₁ ) * P₁ 
-          + β * ( S - P₁ ) * P₁ 
-          - γ * q₁₁ * P₁ 
-          - e₁ * P₁
-    # moment closure
-    dP[5] = 
-          - 2e₁ * P₁₁ 
-          - 2γ * P₁₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2α * p₀₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2β * p₀₁ * P₁
-    dP[6] = 
-          - e₁ * Pᵤ₁ 
-          - γ * Pᵤ₁ * ( (z-1)/z * q₁₁ ) 
-          + α * pᵤ₀ * ( (z-1)/z * q₁₀ ) 
-          + β * pᵤ₀ * P₁
+      # parameters and variables
+      c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+      P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+      # derived variables
+      fill!(dP, 0.0)
+      S = 1 - U
+      pᵤ = U
+      pᵤᵤ = F
+      p₀ = 1 - P₁ - pᵤ
+      q₁₁ = P₁₁ / P₁
+      qᵤ₁ = Pᵤ₁ / P₁
+      p₀₁ = P₁ - P₁₁ - Pᵤ₁
+      pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+      q₁₀ = p₀₁ / p₀
+      # main ODEs
+      dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+              β * (S - P₁) * P₁ -
+              γ * q₁₁ * P₁ -
+              e₁ * P₁
+      # moment closure
+      dP[5] = -e₁ * P₁₁ -
+              γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+              α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+              β * p₀₁ * P₁
+      dP[6] = -e₁ * Pᵤ₁ -
+              γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+              α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+              β * pᵤ₀ * P₁
 end
 
 function SimpleFoodChain!(dP, P, params, t)
-    # parameters and variables
-    c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
-    P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
-    # derived variables
-    S = 1 - U
-    pᵤ = U
-    pᵤᵤ = F
-    p₀ = 1 - P₁ - pᵤ
-    q₁₁ = P₁₁ / P₁
-    qᵤ₁ = Pᵤ₁ / P₁
-    p₀₁ = P₁ - P₁₁ -  Pᵤ₁
-    pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
-    q₁₀ = p₀₁ / p₀
-    # main ODEs
-    dP[1] = α * ( 1 - q₁₁ - qᵤ₁ ) * P₁ 
-          + β * ( S - P₁ ) * P₁ 
-          - γ * q₁₁ * P₁ 
-          - e₁ * P₁
-          - μ₂₁ * P₍₁₂₎
-    dP[2] = c₂ * P₍₁₂₎ * (P₁ -  P₍₁₂₎)
-          - (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎
-          - μ₃₂ * P₍₂₃₎
-    dP[3] = c₃₂ * P₍₂₃₎ * (P₍₁₂₎ - P₍₂₃₎) 
-          - (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎
-    # moment closure
-    dP[5] = - 2e₁ * P₁₁ 
-          - 2γ * P₁₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2α * p₀₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2β * p₀₁ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
-    dP[6] = - e₁ * Pᵤ₁ 
-          - γ * Pᵤ₁ * ( (z-1)/z * q₁₁ ) 
-          + α * pᵤ₀ * ( (z-1)/z * q₁₀ ) 
-          + β * pᵤ₀ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
+      # parameters and variables
+      c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+      P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+      # derived variables
+      fill!(dP, 0.0)
+      S = 1 - U
+      pᵤ = U
+      pᵤᵤ = F
+      p₀ = 1 - P₁ - pᵤ
+      q₁₁ = P₁₁ / P₁
+      qᵤ₁ = Pᵤ₁ / P₁
+      p₀₁ = P₁ - P₁₁ - Pᵤ₁
+      pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+      q₁₀ = p₀₁ / p₀
+      # Resource
+      dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+              β * (S - P₁) * P₁ -
+              γ * q₁₁ * P₁ -
+              e₁ * P₁ -
+              μ₂₁ * P₍₁₂₎
+      # Consumer
+      dP[2] = c₂ * P₍₁₂₎ * (P₁ - P₍₁₂₎) -
+              (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎ -
+              μ₃₂ * P₍₂₃₎
+      # Top Predator
+      dP[3] = c₃₂ * P₍₂₃₎ * (P₍₁₂₎ - P₍₂₃₎) -
+              (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎
+      # moment closure
+      dP[5] = -e₁ * P₁₁ -
+              γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+              α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+              β * p₀₁ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
+      dP[6] = -e₁ * Pᵤ₁ -
+              γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+              α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+              β * pᵤ₀ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * Pᵤ₁
 end
 
-function CompetitiveExclusion!(dP, P, params, t)
-    # parameters and variables
-    c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
-    P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
-    # derived variables
-    S = 1 - U
-    pᵤ = U
-    pᵤᵤ = F
-    p₀ = 1 - P₁ - pᵤ
-    q₁₁ = P₁₁ / P₁
-    qᵤ₁ = Pᵤ₁ / P₁
-    p₀₁ = P₁ - P₁₁ -  Pᵤ₁
-    pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
-    q₁₀ = p₀₁ / p₀
-    # main ODEs
-    dP[1] = α * ( 1 - q₁₁ - qᵤ₁ ) * P₁ 
-          + β * ( S - P₁ ) * P₁ 
-          - γ * q₁₁ * P₁ 
-          - e₁ * P₁
-          - μ₂₁ * P₍₁₂₎
-          - μ₃₁ * P₍₁₃₎
-    dP[2] = c₂ * P₍₁₂₎ * (P₁ -  P₍₁₂₎)             # colonization + competitive exclusion
-          - (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎      # extibctions + predations
-    dP[4] = c₃₁ * P₍₁₃₎ * (P₁ - P₍₁₂₎ - P₍₁₃₎)     # colonization
-          - (γ * q₁₁ + e₁ + e₃₁ + μ₃₁) * P₍₁₃₎     # extinctions + predations   
-          - c₂ * P₍₁₂₎ * P₍₁₃₎                     # competition
-    # moment closure
-    dP[5] = - 2e₁ * P₁₁ 
-          - 2γ * P₁₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2α * p₀₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2β * p₀₁ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
-          - (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
-    dP[6] = - e₁ * Pᵤ₁ 
-          - γ * Pᵤ₁ * ( (z-1)/z * q₁₁ ) 
-          + α * pᵤ₀ * ( (z-1)/z * q₁₀ ) 
-          + β * pᵤ₀ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
-          - (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
+function ExploitativeCompetition!(dP, P, params, t)
+      # parameters and variables
+      c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+      P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+      # derived variables
+      fill!(dP, 0.0)
+      S = 1 - U
+      pᵤ = U
+      pᵤᵤ = F
+      p₀ = 1 - P₁ - pᵤ
+      q₁₁ = P₁₁ / P₁
+      qᵤ₁ = Pᵤ₁ / P₁
+      p₀₁ = P₁ - P₁₁ - Pᵤ₁
+      pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+      q₁₀ = p₀₁ / p₀
+      # Resource
+      dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+              β * (S - P₁) * P₁ -
+              γ * q₁₁ * P₁ -
+              e₁ * P₁ -
+              μ₂₁ * P₍₁₂₎ -
+              μ₃₁ * P₍₁₃₎
+      # Consumer 1 (competitively excludes 2)
+      dP[2] = c₂ * P₍₁₂₎ * (P₁ - P₍₁₂₎) -              # colonization + competitive exclusion
+              (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎        # extinctions + predations
+      # Consumer 2 (better disperser)
+      dP[4] = c₃₁ * P₍₁₃₎ * (P₁ - P₍₁₂₎ - P₍₁₃₎) -     # colonization (increased relative to Consumer 1)
+              (γ * q₁₁ + e₁ + e₃₁ + μ₃₁) * P₍₁₃₎ -     # extinctions + predations   
+              c₂ * P₍₁₂₎ * P₍₁₃₎                       # competition
+      # moment closure
+      dP[5] = -e₁ * P₁₁ -
+              γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+              α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+              β * p₀₁ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁ -
+              (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
+      dP[6] = -e₁ * Pᵤ₁ -
+              γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+              α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+              β * pᵤ₀ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * Pᵤ₁ -
+              (μ₃₁ * P₍₁₃₎ / P₁) * Pᵤ₁
 end
 
 function Omnivory!(dP, P, params, t)
-    # parameters and variables
-    c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
-    P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
-    # derived variables
-    S = 1 - U
-    pᵤ = U
-    pᵤᵤ = F
-    p₀ = 1 - P₁ - pᵤ
-    q₁₁ = P₁₁ / P₁
-    qᵤ₁ = Pᵤ₁ / P₁
-    p₀₁ = P₁ - P₁₁ -  Pᵤ₁
-    pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
-    q₁₀ = p₀₁ / p₀
-    # main ODEs
-    dP[1] = α * ( 1 - q₁₁ - qᵤ₁ ) * P₁ 
-          + β * ( S - P₁ ) * P₁ 
-          - γ * q₁₁ * P₁ 
-          - e₁ * P₁
-          - μ₂₁ * P₍₁₂₎
-          - μ₃₁ * P₍₁₃₎
-    dP[2] = c₂ * P₍₁₂₎ * (P₁ -  P₍₁₂₎)                             # colonization + competitive exclusion
-          - (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎                      # extibctions + predations
-          - μ₃₂ * P₍₂₃₎                                            # predation
-    dP[3] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₍₁₂₎ - P₍₁₃₎)          # colonization
-          - (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎          # extinctions + predations 
-    dP[4] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₁ - P₍₁₂₎ - P₍₁₃₎)     # colonization
-          + (e₂ + μ₃₂) * P₍₂₃₎                                     # prey switching
-          - (γ * q₁₁ + e₁ + e₃₁ + μ₃₁) * P₍₁₃₎                     # extinctions + predations   
-          - c₂ * P₍₁₂₎ * P₍₁₃₎                                     # competitive exclusion
-    # moment closure
-    dP[5] = - 2e₁ * P₁₁ 
-          - 2γ * P₁₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2α * p₀₁ * ( 1/z + (z-1)/z * q₁₁ ) 
-          + 2β * p₀₁ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
-          - (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
-    dP[6] = - e₁ * Pᵤ₁ 
-          - γ * Pᵤ₁ * ( (z-1)/z * q₁₁ ) 
-          + α * pᵤ₀ * ( (z-1)/z * q₁₀ ) 
-          + β * pᵤ₀ * P₁
-          - (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
-          - (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
+      # parameters and variables
+      c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+      P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+      # derived variables
+      fill!(dP, 0.0)
+      S = 1 - U
+      pᵤ = U
+      pᵤᵤ = F
+      p₀ = 1 - P₁ - pᵤ
+      q₁₁ = P₁₁ / P₁
+      qᵤ₁ = Pᵤ₁ / P₁
+      p₀₁ = P₁ - P₁₁ - Pᵤ₁
+      pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+      q₁₀ = p₀₁ / p₀
+      # Resource
+      dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+              β * (S - P₁) * P₁ -
+              γ * q₁₁ * P₁ -
+              e₁ * P₁ -
+              μ₂₁ * P₍₁₂₎ -
+              μ₃₁ * P₍₁₃₎
+      # Consumer (competitively excludes Top Predator for Resource)
+      dP[2] = c₂ * P₍₁₂₎ * (P₁ - P₍₁₂₎) -                             # colonization + competitive exclusion
+              (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎ -                      # extinctions + predations
+              μ₃₂ * P₍₂₃₎                                              # predation
+      # Top Predator --> Consumer
+      dP[3] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₍₁₂₎ - P₍₁₃₎) -          # colonization
+              (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎            # extinctions + predations 
+      # Top Predator --> Resource
+      dP[4] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₁ - P₍₁₂₎ - P₍₁₃₎) +      # colonization
+              (e₂ + μ₃₂) * P₍₂₃₎ -                                      # prey switching
+              (γ * q₁₁ + e₁ + e₃₁ + μ₃₁) * P₍₁₃₎ -                      # extinctions + predations   
+              c₂ * P₍₁₂₎ * P₍₁₃₎                                        # competitive exclusion
+      # moment closure (identical to Exploitative Competition)
+      dP[5] = -e₁ * P₁₁ -
+              γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+              α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+              β * p₀₁ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁ -
+              (μ₃₁ * P₍₁₃₎ / P₁) * P₁₁
+      dP[6] = -e₁ * Pᵤ₁ -
+              γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+              α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+              β * pᵤ₀ * P₁ -
+              (μ₂₁ * P₍₁₂₎ / P₁) * Pᵤ₁ -
+              (μ₃₁ * P₍₁₃₎ / P₁) * Pᵤ₁
+end
+
+################################################################################################################
+# LEGACY
+################################################################################################################
+
+function goofLeg!(dP, P, params, t)
+      # parameters and variables
+      c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+      P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+      # derived variables
+      fill!(dP, 0.0)
+      S = 1 - U
+      pᵤ = U
+      pᵤᵤ = F
+      p₀ = 1 - P₁ - pᵤ
+      q₁₁ = P₁₁ / P₁
+      qᵤ₁ = Pᵤ₁ / P₁
+      p₀₁ = P₁ - P₁₁ - Pᵤ₁
+      pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+      q₁₀ = p₀₁ / p₀
+      # main ODEs
+      dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+              β * (S - P₁) * P₁ -
+              γ * q₁₁ * P₁ -
+              e₁ * P₁
+      # moment closure
+      dP[5] = -e₁ * P₁₁ -
+              γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+              α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+              β * p₀₁ * P₁
+      dP[6] = -e₁ * Pᵤ₁ -
+              γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+              α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+              β * pᵤ₀ * P₁
 end

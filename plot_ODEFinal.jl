@@ -1,6 +1,7 @@
 include(joinpath(@__DIR__, "ODEFinal.jl"))
 include(joinpath(@__DIR__, "helper_functions.jl"))
 include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
+using Revise
 using DifferentialEquations
 using Plots
 using DataFrames
@@ -8,7 +9,7 @@ using DataFrames
 # each ODE has 5 variables (none dependent directly on time) and 16 parameters
 
 # plots a single run of a fully specified simulation
-function plotRun(model, params, init, timespan)
+function plotRun3(model, params, init, timespan)
     # input check
     if plotRunValidInput(params, init, timespan)
         problem = ODEProblem(model, init, timespan, params)
@@ -16,9 +17,13 @@ function plotRun(model, params, init, timespan)
         sol_end = solution[end]
         # output checks
         println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
-        println("Minimum Dynamic Variable is: ", round(minimum(sol_end)))
+        println("Minimum Dynamic Variable is: ", round(minimum(sol_end); digits=4))
         # plot solution
-        plot(solution, size=(1600, 1000))
+        plt = plot(
+            solution, size=(1600, 1000),
+            label=LABELS_plotRun, lw=LINEWIDTHS_plotRun, alpha=LINEOPACITY_plotRun
+        )
+        display(plt)
     else
         error("{plotRun}: Invalid input.")
     end
@@ -89,6 +94,6 @@ end
 #end
 
 
-#########################################################################################################################
+################################################################################################################
 # TESTING
-#########################################################################################################################
+################################################################################################################

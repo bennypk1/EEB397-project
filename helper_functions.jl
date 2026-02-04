@@ -1,3 +1,4 @@
+using Revise
 
 ################################################################################################################
 # MAIN HELPERS
@@ -30,14 +31,15 @@ function plotRunValidInput(all_params, all_init, timespan)
     c1 = is_params_valid(all_params)
     c2 = is_proportion(all_init)
     c3 = is_timespan_valid(timespan)
-    return c1 && c2 && c3
+    c4 = length(all_init) == 6
+    return c1 && c2 && c3 && c4
 end
 
 function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
     c1 = is_proportion(init)
     c2 = is_timespan_valid(timespan)
-    c3 = is_proportion(grain)
-    return c1 && c2 && c3
+    c3 = grain < 0 || grain > 1
+    return c1 && c2 && !c3
 end
 
 ################################################################################################################
@@ -65,9 +67,10 @@ end
 
 # check validity of parameters
 function is_params_valid(all_params)
+    c0 = length(all_params) == 16
     c1 = is_landscapeUF_valid(all_params[12:13])
     c2 = isinteger(all_params[11])
-    return c1 && c2
+    return c0 && c1 && c2
 end
 
 # check if all elevents of a vector are proportions
@@ -80,16 +83,12 @@ function is_proportion(v)
     return true
 end
 
-# check if a scalar is a proportion
-function is_proportion(s)
-    return s <= 1 && s >= 0
-end
-
 # check validity of timespan
 function is_timespan_valid(the_timespan)
+    c0 = length(the_timespan) == 2
     c1 = the_timespan[1] == 0
-    c2 = the_timesapn[2] > the_timespan[1]
-    return c1 && c2
+    c2 = the_timespan[2] > the_timespan[1]
+    return c0 && c1 && c2
 end
 
 ################################################################################################################
