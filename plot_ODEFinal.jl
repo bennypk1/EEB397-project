@@ -9,15 +9,29 @@ using DataFrames
 
 # plots a single run of a fully specified simulation
 function plotRun(model, params, init, timespan)
-    problem = ODEProblem(model, init, timespan, params)
-    solution = solve(problem)
-    plot(solution)
+    # input check
+    if plotRunValidInput(params, init, timespan)
+        problem = ODEProblem(model, init, timespan, params)
+        solution = solve(problem)
+        sol_end = solution[end]
+        # output checks
+        println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
+        println("Minimum Dynamic Variable is: ", round(minimum(sol_end)))
+        # plot solution
+        plot(solution, size=(1600, 1000))
+    else
+        error("{plotRun}: Invalid input.")
+    end
 end
 
 # simulate model accross grid and return data 
 # NOTE: <baseParams> consists of the first 11 nuisance parameters
 # NOTE: <resourceParams> are the last 3 parameters that specify the resource life-history
 function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
+    # input check
+    if !LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
+        error("{LiaoTypeGrid}: Invalid input.")
+    end
     # create grid and empty dataframe
     grid = create_unit_grid(grain)
     data = DataFrame(
@@ -27,11 +41,11 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
     )
     # populate dataframe
     for point in grid
-        if !is_valid(point)
+        if !is_gridPoint_valid(point)
             push!(data, (point[1], point[2], NaN, NaN, NaN, NaN, NaN))
         else
-            landscapeParams = convert_landscape_params([point[1], point[2]])
-            curr_params = [baseParams; landscapeParams; resourceParams]
+            UF = transform_goodLandscape_params([point[1], point[2]])
+            curr_params = [baseParams; UF; resourceParams]
             curr_problem = ODEProblem(model, init, timespan, curr_params)
             curr_solution = solve(curr_problem)
             sol_end = curr_solution[end]

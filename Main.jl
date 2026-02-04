@@ -35,14 +35,13 @@ function goofLeg!(dP, P, params, t)
                 β * pᵤ₀ * P₁
 end
 
+################################################################################################################
 
-# MAIN
-params = [CANONICAL_PARAMS; LANDSCAPE_FULL; [0, 1, 0]]
+params = [CANONICAL_PARAMS; [0.5, 0.4]; [1, 0, 0]]
 init = CANONICAL_INIT
 timespan = CANONICAL_TIMESPAN
-# plotRun(goofLeg!, params, init, [0, 100])
+plotRun(goofLeg!, params, init, [0, 100])
 
-grain = 0.05
+# grain = 0.05
 # y = LiaoTypeGrid1(goofLeg!, CANONICAL_PARAMS, [0, 1, 0], grain, init, timespan)
-
-LiaoTypeHeatMap(goofLeg!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
+# LiaoTypeHeatMap(goofLeg!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
