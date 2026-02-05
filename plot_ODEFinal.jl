@@ -9,7 +9,7 @@ using DataFrames
 # each ODE has 5 variables (none dependent directly on time) and 16 parameters
 
 # plots a single run of a fully specified simulation
-function plotRun3(model, params, init, timespan)
+function plotRun(model, params, init, timespan)
     # input check
     if plotRunValidInput(params, init, timespan)
         problem = ODEProblem(model, init, timespan, params)
@@ -87,10 +87,14 @@ function LiaoTypeHeatMap(model, baseParams, resourceParams, grain, init, timespa
     plot(pR, p2, p3, p23, p13, size=(1600, 1000))
 end
 
+# plots 5 boundary maps of trophic link persistence
+#function LiaoTypeBoundaryMapLink(model, params, initReduced, persistenceThreshold)
+#end
+
+# plots 5 boundary maps of overall species persistence (only differes from abive function in Omnivory case)
+#function LiaoTypeBoundaryMapPersistence(model, params, initReduced, persistenceThreshold)
 
 
-# plots 5 boundary maps, 3 for the raw links, and 1 for the combined 
-#function LiaoTypeBoundaryMap(model, params, initReduced, persistenceThreshold)
 #end
 
 
