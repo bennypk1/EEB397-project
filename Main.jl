@@ -2,6 +2,7 @@ using Revise
 include(joinpath(@__DIR__, "CONSTANTS", "modelsInfo.jl"))
 include(joinpath(@__DIR__, "plot_ODEFinal.jl"))
 include(joinpath(@__DIR__, "ODEFinal.jl"))
+include(joinpath(@__DIR__, "helper_functions.jl"))
 
 function goofLeg!(dP, P, params, t)
     # parameters and variables
@@ -27,14 +28,18 @@ end
 
 ################################################################################################################
 
-params = [CANONICAL_PARAMS1; [0.5, 0.5]; [0, 1, 0]]
+params = [CANONICAL_PARAMS; [0.5, 0.5]; [0, 1, 0]]
 init = CANONICAL_INIT
 timespan = CANONICAL_TIMESPAN
 # plotRun(ExploitativeCompetition3!, params, init, [0, 100])
 
-grain = 0.01
-CANONICAL_PARAMS1[4] = 0.05 # set intrinsic extinction of resource
-CANONICAL_PARAMS1[8] = 0.025 # set additive mortality rate due to 2 feeding on 1
-CANONICAL_PARAMS1[10] = 0.025 # set additive mortality rate due to 3 feeding on 1
+grain = 0.005
+CANONICAL_PARAMS[4] = 0.05 # set intrinsic extinction of resource
+CANONICAL_PARAMS[8] = 0.025 # set additive mortality rate due to 2 feeding on 1
+CANONICAL_PARAMS[10] = 0.025 # set additive mortality rate due to 3 feeding on 1
 
-LiaoTypeHeatMap(ExploitativeCompetition!, CANONICAL_PARAMS1, [0, 1, 0.5], grain, init, timespan)
+LiaoTypeSpeciesRichnessMap(SimpleFoodChain!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
+# testGrid = LiaoTypeGridExtra(ExploitativeCompetition!, CANONICAL_PARAMS, [0, 1, 0.5], grain, init, timespan)
+# assignSpeciesDistributionID(testGrid)
+
+# TODO: NEED TO WRITE CHECKS AND ERROR THROWS FOR LiaoTypeGrid TO MAKE SURE ALL PERSISTANCES ARE ALWAYS POSITIVE

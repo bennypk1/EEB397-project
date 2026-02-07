@@ -60,6 +60,25 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
     return (data)
 end
 
+# runs LiaoTypeGrid, then checks if the links are persisting at a given point
+function LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    # get raw grid data simGridData + threshold
+    rawGridData = LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
+    n = nrow(rawGridData)
+    t = PERSISTENCE_THRESHOLD
+    # return a dataframe augmented with binary persistence data
+    newData = DataFrame(
+        Availability=rawGridData.Availability, Connectivity=rawGridData.Connectivity,
+        DensityR=rawGridData.DensityR, Density2=rawGridData.Density2, Density3=rawGridData.Density3,
+        Density23=rawGridData.Density23, Density13=rawGridData.Density13,
+        PersistenceR=discretizeDensity(rawGridData.DensityR, t),
+        Persistence2=discretizeDensity(rawGridData.Density2, t),
+        Persistence3=discretizeDensity(rawGridData.Density3, t),
+        Persistence23=discretizeDensity(rawGridData.Density23, t),
+        Persistence13=discretizeDensity(rawGridData.Density13, t))
+    return newData
+end
+
 # plots 5 heat maps, 4 for the raw links + 1 for the combined top predator density
 function LiaoTypeHeatMap(model, baseParams, resourceParams, grain, init, timespan)
     # get simGridData
@@ -86,6 +105,56 @@ function LiaoTypeHeatMap(model, baseParams, resourceParams, grain, init, timespa
     # arrange plots
     plot(pR, p2, p3, p23, p13, size=(1600, 1000))
 end
+
+# plots 5 binary persistence maps, 4 for the raw links + 1 for the combined top predator density
+function LiaoTypePersistenceMap(model, baseParams, resourceParams, grain, init, timespan)
+    # get simGridData
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    # setup
+    grid_length = 0:grain:1
+    n = length(grid_length)
+    Z_R = reshape(simGridData.PersistenceR, n, n)
+    Z_2 = reshape(simGridData.Persistence2, n, n)
+    Z_3 = reshape(simGridData.Persistence3, n, n)
+    Z_23 = reshape(simGridData.Persistence23, n, n)
+    Z_13 = reshape(simGridData.Persistence13, n, n)
+    # create heatmaps
+    pR = heatmap(grid_length, grid_length, Z_R, title="Resource Persistence (P₁)",
+        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
+    p2 = heatmap(grid_length, grid_length, Z_2, title="Consumer Persistence (P₂)",
+        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
+    p3 = heatmap(grid_length, grid_length, Z_3, title="Tertiary Persistence (P₃)",
+        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
+    p23 = heatmap(grid_length, grid_length, Z_23, title="2-3 Link Persistence (P₍₂₃₎)",
+        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
+    p13 = heatmap(grid_length, grid_length, Z_13, title="1-3 Link Persistence (P₍₁₃₎)",
+        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
+    # arrange plots
+    plot(pR, p2, p3, p23, p13, size=(1600, 1000))
+end
+
+# assigns each point on the LiaoType plot a color. Each colors is a unique species combination
+function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, init, timespan)
+    # get augmented sim data
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    # create diversity dataset
+    speciesDiversityData = DataFrame(
+        Availability=simGridData.Availability,
+        Connectivity=simGridData.Connectivity,
+        SpeciesDistributionID=assignSpeciesDistributionID(simGridData)
+    )
+    # plot on a heatmap
+    grid_length = 0:grain:1
+    n = length(grid_length)
+    Z_S = reshape(speciesDiversityData.SpeciesDistributionID, n, n)
+    p = heatmap(grid_length, grid_length, Z_S, title="Species Richness Across Landscape Types",
+        aspect_ratio=1, c=cgrad(:viridis, scale=:linear), clims=(0, 1), colorbar=false)
+    plot(p, size=(1600, 1000))
+end
+
+# plots a single heat map that colors areas by the number of links there
+# function LiaoTypeLinkDiversityMap(model, baseParams, resourceParams, grain, init, timespan)
+
 
 # plots 5 boundary maps of trophic link persistence
 #function LiaoTypeBoundaryMapLink(model, params, initReduced, persistenceThreshold)

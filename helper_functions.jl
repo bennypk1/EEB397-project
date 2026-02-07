@@ -1,4 +1,5 @@
 using Revise
+include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
 
 ################################################################################################################
 # MAIN HELPERS
@@ -41,6 +42,46 @@ function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespa
     c3 = grain < 0 || grain > 1
     return c1 && c2 && !c3
 end
+
+# returns vector mapping NaN to NaN, and proportions to 0 or 1 depending on <threshold>
+# <LiaoTypeVector> must be a vector with only NaN, and Floats from 0-1
+function discretizeDensity(LiaoTypeVector, threshold)
+    # check that threshold is valid
+    if threshold > 1 || threshold < 0
+        error("{discretizeDensity} Threshold too large or invalid.")
+    end
+    # real function body
+    returnVector = similar(LiaoTypeVector, Float64)
+    for i in eachindex(LiaoTypeVector)
+        element = LiaoTypeVector[i]
+        if isnan(element)
+            returnVector[i] = NaN
+        elseif element <= 1 && element >= threshold
+            returnVector[i] = 1.0
+        elseif element >= 0 && element < threshold
+            returnVector[i] = 0.4
+        else
+            error("{discretizeDensity} Wrong elelment type.")
+        end
+    end
+    return returnVector
+end
+
+# returns a vector of discrete fractions, each corresponding to a unique combination of species
+# <abundanceGridData> must be output from LiaoTypeGridExtra
+function assignSpeciesDistributionID(abundanceGridData)
+    n = nrow(abundanceGridData)
+    returnVector = zeros(n)
+    for i in 1:nrow(abundanceGridData)
+        raw_id = [
+            abundanceGridData.PersistenceR[i],
+            abundanceGridData.Persistence2[i],
+            abundanceGridData.Persistence3[i]]
+        returnVector[i] = mapRawIDtoSpeciesDistributionID(raw_id)
+    end
+    return returnVector
+end
+
 
 ################################################################################################################
 # SMALL HELPERS
@@ -89,6 +130,29 @@ function is_timespan_valid(the_timespan)
     c1 = the_timespan[1] == 0
     c2 = the_timespan[2] > the_timespan[1]
     return c0 && c1 && c2
+end
+
+function mapRawIDtoSpeciesDistributionID(rawID)
+    if length(rawID) != 3
+        error("{mapRawIDtoSpeciesDistributionID} rawID vector not correct length.")
+    end
+    no = PERSISTENCE_CODE[1]
+    yes = PERSISTENCE_CODE[2]
+    if isnan(rawID[1])
+        return NaN
+    elseif rawID == [no, no, no]
+        return SPECIES_DISTRIBUTION_IDS[1]
+    elseif rawID == [yes, no, no]
+        return SPECIES_DISTRIBUTION_IDS[2]
+    elseif rawID == [yes, yes, no]
+        return SPECIES_DISTRIBUTION_IDS[3]
+    elseif rawID == [yes, no, yes]
+        return SPECIES_DISTRIBUTION_IDS[4]
+    elseif rawID == [yes, yes, yes]
+        return SPECIES_DISTRIBUTION_IDS[5]
+    else
+        error("{mapRawIDtoSpeciesDistributionID} rawID vector is an invalid ID")
+    end
 end
 
 ################################################################################################################
