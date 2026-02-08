@@ -6,7 +6,7 @@ using DifferentialEquations
 using Plots
 using DataFrames
 
-# each ODE has 5 variables (none dependent directly on time) and 16 parameters
+# each ODE has 6 variables (none dependent directly on time) and 16 parameters
 
 # plots a single run of a fully specified simulation
 function plotRun(model, params, init, timespan)
@@ -54,6 +54,10 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
             curr_problem = ODEProblem(model, init, timespan, curr_params)
             curr_solution = solve(curr_problem)
             sol_end = curr_solution[end]
+            # if the end solution is mathematically invalid, throw error
+            if !is_valid_ODE_end(point, sol_end)
+                error("{LiaoTypeGrid}: ODE solution violates model variable constraints.")
+            end
             push!(data, (point[1], point[1], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4]))
         end
     end
@@ -151,21 +155,6 @@ function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, in
         aspect_ratio=1, c=cgrad(:viridis, scale=:linear), clims=(0, 1), colorbar=false)
     plot(p, size=(1600, 1000))
 end
-
-# plots a single heat map that colors areas by the number of links there
-# function LiaoTypeLinkDiversityMap(model, baseParams, resourceParams, grain, init, timespan)
-
-
-# plots 5 boundary maps of trophic link persistence
-#function LiaoTypeBoundaryMapLink(model, params, initReduced, persistenceThreshold)
-#end
-
-# plots 5 boundary maps of overall species persistence (only differes from abive function in Omnivory case)
-#function LiaoTypeBoundaryMapPersistence(model, params, initReduced, persistenceThreshold)
-
-
-#end
-
 
 ################################################################################################################
 # TESTING

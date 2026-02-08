@@ -37,10 +37,22 @@ function plotRunValidInput(all_params, all_init, timespan)
 end
 
 function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
+    c0 = all([resourceParams; baseParams] .>= 0)
     c1 = is_proportion(init)
     c2 = is_timespan_valid(timespan)
     c3 = grain < 0 || grain > 1
-    return c1 && c2 && !c3
+    return c1 && c2 && !c3 && c0
+end
+
+# check if the output of solve(ODEProblem) is valid for our model, in a given a landscape defined by <point> (currently non-exhautive)
+function is_valid_ODE_end(point, sol_end)
+    c1 = all(sol_end .>= -1e-4)
+    c2 = all(sol_end .<= point[1])
+    c3 = sol_end[2] <= sol_end[1] || sol_end[2] <= 0.01
+    c4 = sol_end[3] <= sol_end[1] || sol_end[3] <= 0.01
+    c5 = sol_end[4] <= sol_end[1] || sol_end[4] <= 0.01
+    c6 = sol_end[3] + sol_end[4] <= sol_end[1] || any(sol_end[3:4] .<= 0.01)
+    return c1 && c2 && c3 && c4 && c5 && c6
 end
 
 # returns vector mapping NaN to NaN, and proportions to 0 or 1 depending on <threshold>
@@ -58,7 +70,7 @@ function discretizeDensity(LiaoTypeVector, threshold)
             returnVector[i] = NaN
         elseif element <= 1 && element >= threshold
             returnVector[i] = 1.0
-        elseif element >= 0 && element < threshold
+        elseif element >= -1e-4 && element < threshold
             returnVector[i] = 0.4
         else
             error("{discretizeDensity} Wrong elelment type.")
@@ -174,8 +186,3 @@ function get_init_from_trophic_config(initial_densities, trophic_configuration)
     P13_init = I13 == 1 ? P13 : 0.0
     return [P1, P12, P23_init, P13_init, P11, Pu1]
 end
-
-################################################################################################################
-# TESTING
-################################################################################################################
-

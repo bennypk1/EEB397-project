@@ -152,7 +152,7 @@ function Omnivory!(dP, P, params, t)
                 (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎ -                      # extinctions + predations
                 μ₃₂ * P₍₂₃₎                                              # predation
         # Top Predator --> Consumer
-        dP[3] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₍₁₂₎ - P₍₁₃₎) +           # colonization
+        dP[3] = (c₃₁ * P₍₁₃₎ + c₃₂ * P₍₂₃₎) * (P₍₁₂₎ - P₍₂₃₎) +           # colonization
                 c₂ * P₍₁₂₎ * P₍₁₃₎ * (1 - F) -                            # competitive exclusion of 3 by 2
                 (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎             # extinctions + predations 
         # Top Predator --> Resource
