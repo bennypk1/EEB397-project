@@ -20,3 +20,9 @@ SPECIES_DISTRIBUTION_IDS = [0, 0.25, 0.5, 0.75, 1]
 # 3 = resource + 2
 # 4 = resource + 3
 # 5 = all 3
+
+
+# Proportional Persistance-related plots
+
+PP_GRAIN = 0.1
+CANDIADATE_PP_PARAMETER_INDICES = [4, 8, 16] # can extend functionality to incorporate more in the future if necessary

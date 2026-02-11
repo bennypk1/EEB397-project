@@ -6,28 +6,12 @@ using DifferentialEquations
 using Plots
 using DataFrames
 
-# each ODE has 6 variables (none dependent directly on time) and 16 parameters
+# Note: each ODE has 6 variables (none dependent directly on time) and 16 parameters
+# Note: of a coexistance pattern, proportional persistance represents the area of the Liao Type plot it occupies
 
-# plots a single run of a fully specified simulation
-function plotRun(model, params, init, timespan)
-    # input check
-    if plotRunValidInput(params, init, timespan)
-        problem = ODEProblem(model, init, timespan, params)
-        solution = solve(problem)
-        sol_end = solution[end]
-        # output checks
-        println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
-        println("Minimum Dynamic Variable is: ", round(minimum(sol_end); digits=4))
-        # plot solution
-        plt = plot(
-            solution, size=(1600, 1000),
-            label=LABELS_plotRun, lw=LINEWIDTHS_plotRun, alpha=LINEOPACITY_plotRun
-        )
-        display(plt)
-    else
-        error("{plotRun}: Invalid input.")
-    end
-end
+################################################################################################################
+# DATA GENERATING FUNCTIONS
+################################################################################################################
 
 # simulate model accross grid and return data 
 # NOTE: <baseParams> consists of the first 11 nuisance parameters
@@ -81,6 +65,72 @@ function LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, times
         Persistence23=discretizeDensity(rawGridData.Density23, t),
         Persistence13=discretizeDensity(rawGridData.Density13, t))
     return newData
+end
+
+# generates a single point vector, to be plotted in <ProportionalPersistencePlot>
+function ProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan)
+    # get augmented sim data, add distribution IDs, and save it's number of rows
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
+    n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
+    # for each unique distribution ID, caclulate its proportional persistence
+    pointVector = zeros(length(SPECIES_DISTRIBUTION_IDS))
+    for i in eachindex(SPECIES_DISTRIBUTION_IDS)
+        curr_ID = SPECIES_DISTRIBUTION_IDS[i]
+        pointVector[i] = count(simGridData.SpeciesDistributionID .== curr_ID) / n_valid_landscapes
+    end
+    # output check
+    if abs(sum(pointVector) - 1) > grain^2 # threshold chosen arbitrarily
+        error("{ProportionalPersistencePoint}: Point vector sum is very different from 1")
+    end
+    return pointVector
+end
+
+# generates a single point vector, to be plotted in <WeightedProportionalPersistencePlot>
+# Note: this function weighs the proportion of each coexistance pattern by the mean equilibrium resource density accross it's range
+function WeightedProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan)
+    # get augmented sim data, add distribution IDs, and save it's number of rows
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
+    n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
+    # for each unique distribution ID, caclulate its proportional persistence
+    weightedPointVector = zeros(length(SPECIES_DISTRIBUTION_IDS))
+    for i in eachindex(SPECIES_DISTRIBUTION_IDS)
+        curr_ID = SPECIES_DISTRIBUTION_IDS[i]
+        filtered_data = simGridData[simGridData.SpeciesDistributionID.==curr_ID, :]
+        # handle if this species coexistance pattern does not exist in the given data
+        if nrow(filtered_data) == 0
+            weightedPointVector[i] = 0.0
+        else
+            weightedPointVector[i] = sum(filtered_data.DensityR) / n_valid_landscapes
+        end
+    end
+    return weightedPointVector
+end
+
+################################################################################################################
+# GENUINE PLOTTING FUNCTIONS
+################################################################################################################
+
+# plots a single run of a fully specified simulation
+function plotRun(model, params, init, timespan)
+    # input check
+    if plotRunValidInput(params, init, timespan)
+        problem = ODEProblem(model, init, timespan, params)
+        solution = solve(problem)
+        sol_end = solution[end]
+        # output checks
+        println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
+        println("Minimum Dynamic Variable is: ", round(minimum(sol_end); digits=4))
+        # plot solution
+        plt = plot(
+            solution, size=(1600, 1000),
+            label=LABELS_plotRun, lw=LINEWIDTHS_plotRun, alpha=LINEOPACITY_plotRun
+        )
+        display(plt)
+    else
+        error("{plotRun}: Invalid input.")
+    end
 end
 
 # plots 5 heat maps, 4 for the raw links + 1 for the combined top predator density
@@ -156,6 +206,79 @@ function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, in
     plot(p, size=(1600, 1000))
 end
 
-################################################################################################################
-# TESTING
-################################################################################################################
+# Plot the "proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
+# y-axis: interpreted as the fraction of all possible habitat types in which this coexistance pattern is observed
+# Note: it is assumed that <param_i> is the index of a parameter that ONLY varies between 0 and 1
+function ProportionalPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
+    # check input
+    if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
+        error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
+    end
+    # generate plotting data
+    plottingData = DataFrame(ParameterValue=Float64[], PP_1=Float64[],
+        PP_2=Float64[], PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
+    for parameter_value in 0.025:PP_GRAIN:0.5
+        # alter model parmeter inputs as required
+        baseParams1 = copy(baseParams)
+        resourceParams1 = copy(resourceParams)
+        if param_i < 12
+            baseParams1[param_i] = parameter_value
+        elseif param_i >= 14 && param_i <= 16
+            resourceParams1[param_i-14+1] = parameter_value
+        else
+            error("{ProportionalPersistencePlot}: Parameter index chosen is invalid.")
+        end
+        # run model and push PP results to plotting data
+        pp = ProportionalPersistencePoint(model, baseParams1, resourceParams1, grain, init, timespan)
+        push!(plottingData, (ParameterValue=parameter_value, PP_1=pp[1], PP_2=pp[2],
+            PP_3=pp[3], PP_4=pp[4], PP_5=pp[5]))
+    end
+    # plot
+    colors = ["#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"]
+    plt = plot(plottingData.ParameterValue, plottingData.PP_1, label="PP₁",
+        xlabel=get_label_from_param_i(param_i),
+        ylabel="Proportional Persistence", lw=10, color=colors[1], size=(1600, 1000))
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_2, label="PP₂", lw=10, color=colors[2])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_3, label="PP₃", lw=10, color=colors[3])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_4, label="PP₄", lw=10, color=colors[4])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_5, label="PP₅", lw=10, color=colors[5])
+end
+
+# Plot the "weighted proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
+# Note: it is assumed that <param_i> is the index of a parameter that ONLY varies between 0 and 1
+function WeightedProportionalPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
+    # check input
+    if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
+        error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
+    end
+    # generate plotting data
+    plottingData = DataFrame(ParameterValue=Float64[], PP_1=Float64[],
+        PP_2=Float64[], PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
+    for parameter_value in 0.025:PP_GRAIN:0.5
+        # alter model parmeter inputs as required
+        baseParams1 = copy(baseParams)
+        resourceParams1 = copy(resourceParams)
+        if param_i < 12
+            baseParams1[param_i] = parameter_value
+        elseif param_i >= 14 && param_i <= 16
+            resourceParams1[param_i-14+1] = parameter_value
+        else
+            error("{ProportionalPersistencePlot}: Parameter index chosen is invalid.")
+        end
+        # run model and push PP results to plotting data
+        pp = WeightedProportionalPersistencePoint(model, baseParams1, resourceParams1, grain, init, timespan)
+        push!(plottingData, (ParameterValue=parameter_value, PP_1=pp[1], PP_2=pp[2],
+            PP_3=pp[3], PP_4=pp[4], PP_5=pp[5]))
+    end
+    # plot
+    colors = ["#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"]
+    plt = plot(plottingData.ParameterValue, plottingData.PP_1, label="PP₁",
+        xlabel=get_label_from_param_i(param_i),
+        ylabel="Proportional Persistence", lw=10, color=colors[1], size=(1600, 1000))
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_2, label="PP₂", lw=10, color=colors[2])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_3, label="PP₃", lw=10, color=colors[3])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_4, label="PP₄", lw=10, color=colors[4])
+    plot!(plt, plottingData.ParameterValue, plottingData.PP_5, label="PP₅", lw=10, color=colors[5])
+end
+
+# TODO: replace the data generation logic of these plots with it's own dedicated function and have a switch: weighted = true or false

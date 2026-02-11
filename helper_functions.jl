@@ -167,6 +167,18 @@ function mapRawIDtoSpeciesDistributionID(rawID)
     end
 end
 
+function get_label_from_param_i(i)
+    if i == 4
+        return "Intrinsic Extinction Coefficient (e₁)"
+    elseif i == 8
+        return "Top-Down Predation Coefficient (μ₂₁)"
+    elseif i == 16
+        return "Crowding Sensitivity Coefficient (γ)"
+    else
+        error("{get_label_from_param_i}: Parameter index is invalid.")
+    end
+end
+
 ################################################################################################################
 # LEGACY HELPERS
 ################################################################################################################
