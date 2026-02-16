@@ -1,7 +1,6 @@
 using DifferentialEquations
 using Plots
 using DataFrames
-include("helper_functions.jl")
 
 # Replace function body with one of the ODEs
 function testODE!(dP, init, params, t)
@@ -9,8 +8,8 @@ function testODE!(dP, init, params, t)
     P₁, P₂, P₃, P₁₁, Pᵤ₁ = init
     dP[1] = c₁ * (P₁ - P₁₁ - Pᵤ₁) - e₁ * P₁ - μ₂₁ * P₂
     dP[2] = c₂ * (P₁ - P₂) * P₂ - (e₁ + e₂) * P₂ - μ₂₁ * P₂
-    dP[4] = c₁ * (P₁ - P₁₁ - Pᵤ₁) * (1/4 + 3/4 * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁))) - P₁₁ * (e₁ + μ₂₁ * (P₂))
-    dP[5] = c₁ * (3/4) * (s - ρ - Pᵤ₁) * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁)) - Pᵤ₁ * (e₁ + μ₂₁ * (P₂))
+    dP[4] = c₁ * (P₁ - P₁₁ - Pᵤ₁) * (1 / 4 + 3 / 4 * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁))) - P₁₁ * (e₁ + μ₂₁ * (P₂))
+    dP[5] = c₁ * (3 / 4) * (s - ρ - Pᵤ₁) * ((P₁ - P₁₁ - Pᵤ₁) / (s - P₁)) - Pᵤ₁ * (e₁ + μ₂₁ * (P₂))
 end
 
 # Single solution over time
@@ -27,19 +26,19 @@ p1 = plot(this_sol)
 grain = 0.015
 grid = create_unit_grid(grain)
 n_sims = length(grid)
-data = DataFrame(Availability = Float64[], Connectivity = Float64[], PreyDensity = Float64[], PredDensity = Float64[], Pred2Density = Float64[])
+data = DataFrame(Availability=Float64[], Connectivity=Float64[], PreyDensity=Float64[], PredDensity=Float64[], Pred2Density=Float64[])
 
 for point in grid
     if !is_valid(point)
         new_row = (point[1], point[2], NaN, NaN, NaN)
         push!(data, new_row)
     else
-    curr_params = [1, 1, 1, 0.05, 0.05, 0.05, 0.0025, 0.0025, point[1], point[1] * point[2]]
-    curr_prob = ODEProblem(testODE!, initial_density, tm_spn, curr_params)
-    curr_sol = solve(curr_prob)
-    sol_end = curr_sol[end]
-    new_row = (point[1], point[2], sol_end[1], sol_end[2], sol_end[3])
-    push!(data, new_row)
+        curr_params = [1, 1, 1, 0.05, 0.05, 0.05, 0.0025, 0.0025, point[1], point[1] * point[2]]
+        curr_prob = ODEProblem(testODE!, initial_density, tm_spn, curr_params)
+        curr_sol = solve(curr_prob)
+        sol_end = curr_sol[end]
+        new_row = (point[1], point[2], sol_end[1], sol_end[2], sol_end[3])
+        push!(data, new_row)
     end
 end
 
@@ -48,16 +47,16 @@ grid_length = 0:grain:1
 z_matrix2 = reshape(data.PreyDensity, length(grid_length), length(grid_length))
 z_matrix3 = reshape(data.PredDensity, length(grid_length), length(grid_length))
 z_matrix4 = reshape(data.Pred2Density, length(grid_length), length(grid_length))
-p2 = heatmap(grid_length,grid_length, z_matrix2,
+p2 = heatmap(grid_length, grid_length, z_matrix2,
     xlabel="Availability", ylabel="Connectivity", colorbar_title="Density",
-    aspect_ratio = 0.85, c = cgrad(:jet, scale = :linear), clims = (0, 1)
+    aspect_ratio=0.85, c=cgrad(:jet, scale=:linear), clims=(0, 1)
 )
-p3 = heatmap(grid_length,grid_length, z_matrix3,
+p3 = heatmap(grid_length, grid_length, z_matrix3,
     xlabel="Availability", ylabel="Connectivity", colorbar_title="Density",
-    aspect_ratio = 0.85, c = cgrad(:jet, scale = :linear), clims = (0, 1)
+    aspect_ratio=0.85, c=cgrad(:jet, scale=:linear), clims=(0, 1)
 )
-p4 = heatmap(grid_length,grid_length, z_matrix4,
+p4 = heatmap(grid_length, grid_length, z_matrix4,
     xlabel="Availability", ylabel="Connectivity", colorbar_title="Density",
-    aspect_ratio = 0.85, c = cgrad(:jet, scale = :linear), clims = (0, 1)
+    aspect_ratio=0.85, c=cgrad(:jet, scale=:linear), clims=(0, 1)
 )
-plot(p1, p2, p3, p4, size = (800, 800))
+plot(p1, p2, p3, p4, size=(800, 800))

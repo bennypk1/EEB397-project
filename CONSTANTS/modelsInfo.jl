@@ -1,4 +1,6 @@
 
+using Revise
+using DataFrames
 
 # MODEL PARAMETERS
 
@@ -20,3 +22,10 @@ RD_LOCAL = [1, 0, 0]
 # OTHER SPECIFICATIONS
 
 CANONICAL_TIMESPAN = [0, 100]
+
+
+
+# Sensitivity Analysis Stuff
+
+# cube of main parameter values my analyses will be conducted on 
+MAIN_CUBE = DataFrame()

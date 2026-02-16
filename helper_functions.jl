@@ -94,6 +94,19 @@ function assignSpeciesDistributionID(abundanceGridData)
     return returnVector
 end
 
+# flatten a dataframe output from <>
+function flatten_PP_statistics(df)
+    gdf = groupby(df, :ParameterValue)
+    flattened = combine(gdf,
+        :PP_3 => mean => :PP_3_mean,
+        :PP_4 => mean => :PP_4_mean,
+        :PP_5 => mean => :PP_5_mean,
+        :PP_3 => std => :PP_3_sd,
+        :PP_4 => std => :PP_4_sd,
+        :PP_5 => std => :PP_5_sd)
+    return flattened
+end
+
 
 ################################################################################################################
 # SMALL HELPERS
