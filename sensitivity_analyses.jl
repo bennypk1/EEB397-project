@@ -1,7 +1,6 @@
 using Revise
 using Distributions
-include(joinpath(@__DIR__, "plot_ODEFinal.jl"))
-
+include(joinpath(@__DIR__, "helper_functions.jl"))
 
 ###############################################################################################################
 # DEFINING ALL HARD MODEL CONSTRAINTS (delete from here when implemented in code below)
@@ -49,18 +48,17 @@ RESOURCE_INIT_DENSITY_CAP_SOFT = 0.015
 PAIR_DENSITY_SUM_CAP_SOFT = 1.0 # OFF
 GAMMA_MIN, GAMMA_MAX = [0, 1] # OFF
 OMEGA_MIN, OMEGA_MAX = [0.1, 1] # TODO: this is quite conservative
-E1_MIN, E1_MAX = [0.01, 0.5] # TODO: figure this out, currently unstable
+E1_MIN, E1_MAX = [0.05, 0.5] # TODO: figure this out, currently unstable
 CANONICAL_MAIN_BASE = [0.05, 1.0, 0.0]
 
 ###############################################################################################################
-# SENSITIVITY ANALYSIS
+# HELPERS - SAMPLING FUNCTIONS
 ###############################################################################################################
 
 # Notation
 # fixedParameters : 5-element vector
 # mainParameters  : 3-element vector
 # init            : 6-element vector
-# maxTime         : 1-element vector
 
 # check if fixed parameters adhere to (marginal) hard AND soft constraints
 function is_fixed_valid(fixedParameters)
@@ -109,8 +107,8 @@ end
 # check if all parameters satisfy hard AND soft constraints
 function is_model_valid(fixedParameters, mainParameters, omnivoryBool)
     # input checks
-    marg1 = is_fixed_valid1(fixedParameters)
-    marg2 = is_main_valid1(mainParameters)
+    marg1 = is_fixed_valid(fixedParameters)
+    marg2 = is_main_valid(mainParameters)
     # function body
     cₙ, eₙ, μₙ, α, ψ = fixedParameters
     e₁, ω, γ = mainParameters
@@ -122,8 +120,8 @@ end
 
 # HELPER
 # returns a 3-column dataframe where each row is a potential mainParameters vector. Used EXCLUSIVELY for checking input parameter validity.
-# <cubeGrain> determines how finely we are verifying parameter validity
-function generate_mainParameters_data(grain, e₁_base, ω_base, γ_base)
+# <length.out> determines how finely we are verifying parameter validity
+function generate_mainParameters_data(length_out, e₁_base, ω_base, γ_base)
     # check input validity
     if !(grain < 0.25 && grain > 0.0)
         error("{generate_mainParameters_data}: grain is either too coarse (> 0.25), or invalid.")
@@ -134,13 +132,13 @@ function generate_mainParameters_data(grain, e₁_base, ω_base, γ_base)
     # setup
     returnData = DataFrame(e_1=Float64[], omega=Float64[], gamma=Float64[])
     # add each parameter variation list individually
-    for e₁_curr in E1_MIN:grain:E1_MAX
+    for e₁_curr in range(E1_MIN, stop=E1_MAX, length=length_out)
         push!(returnData, (e₁_curr, ω_base, γ_base))
     end
-    for ω_curr in OMEGA_MIN:grain:OMEGA_MAX
+    for ω_curr in range(OMEGA_MIN, stop=OMEGA_MAX, length=length_out)
         push!(returnData, (e₁_base, ω_curr, γ_base))
     end
-    for γ_curr in GAMMA_MIN:grain:GAMMA_MAX
+    for γ_curr in range(GAMMA_MIN, stop=GAMMA_MAX, length=length_out)
         push!(returnData, (e₁_base, ω_base, γ_curr))
     end
     # check output marginal validity
@@ -169,6 +167,10 @@ function SAMPLERAW_fixedParameters(omnivoryBool)
     end
 end
 
+###############################################################################################################
+# SAMPLING FUNCTIONS
+###############################################################################################################
+
 # generate a random, valid `fixedParameters` vector that is compatable accross a range of `mainParameters`
 function SAMPLE_fixedParameters(omnivoryBool=false)
     # main parameters data
@@ -193,22 +195,39 @@ function SAMPLE_fixedParameters(omnivoryBool=false)
     return sampleFixedParameters
 end
 
+# generate a random, marginally valid `init` vector
 function SAMPLE_init()
     while true
         # sample candidate vector
-        sampleInit = rand(Uniform(0.0, RESOURCE_INIT_DENSITY_CAP_SOFT))
+        sampleInit = rand(Uniform(0.0, RESOURCE_INIT_DENSITY_CAP_SOFT), 6)
         if is_init_valid(sampleInit)
             return sampleInit
         end
     end
 end
 
-# returns a random assortment of input data
-function get_valid_input()
-    inputVector = zeros(n)
-    inputVector[1:5] = SAMPLE_fixedParmeters() # This function must also test fixedParameters' compatability with a range of main parameters
-    inputVector[1:5] = SAMPLE_init()
-    return inputVector
+# map <fixedParams> to two parameter lists, assuming CANONICAL_MAIN_BASE
+# Note: <fixedParams> must be the output of SAMPLE_fixedParameters()
+function assemble_parameters(fixedParams)
+    cₙ, eₙ, μₙ, α, ψ = fixedParams
+    e₁, ω, γ = CANONICAL_MAIN_BASE
+    # base params
+    c₂ = cₙ
+    c₃₂ = cₙ
+    c₃₁ = cₙ
+    e₂ = eₙ
+    e₃₂ = eₙ
+    e₃₁ = e₁ * ψ          # ψ = e₃₁ / e₃₂
+    μ₂₁ = μₙ
+    μ₃₂ = μₙ
+    μ₃₁ = μ₂₁ * ω         # ω = μ₃₁ / μ₂₁
+    z = 4
+    baseParams = [c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z]
+    # resource params
+    β = 1 - α
+    resourceParams = [α, β, γ]
+    # return tuple
+    return (baseParams, resourceParams)
 end
 
 ###############################################################################################################
@@ -216,17 +235,17 @@ end
 ###############################################################################################################
 
 # 1) sample a valid fixedParameters
-# 1.1) TODO may need a function here that determines to what extent we can increase the main parameters, bsed on fixedParameters
 # 2) for each of the three model types, check if results hold
 
 # TODO: need to define all of the results I want to check
 # TODO: start by verifying that Resource response to mainParameters is robust
 
 
-
 ###############################################################################################################
 # TARGET FUNCTIONS (each output T or F)
 ###############################################################################################################
+
+
 
 # in the absence of consumers, checks resource response
 function TARGET_resourceResponse_Resource(baseParams, resourceParams, grain, init, timespan)
