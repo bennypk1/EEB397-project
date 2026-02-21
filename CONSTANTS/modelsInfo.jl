@@ -29,3 +29,7 @@ CANONICAL_TIMESPAN = [0, 100]
 
 # cube of main parameter values my analyses will be conducted on 
 MAIN_CUBE = DataFrame()
+
+
+# KEY SOFT CONSTRASINTS
+SIGNIFICANT_P = 0.01

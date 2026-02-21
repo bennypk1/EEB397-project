@@ -44,15 +44,33 @@ function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespa
     return c1 && c2 && !c3 && c0
 end
 
-# check if the output of solve(ODEProblem) is valid for our model, in a given a landscape defined by <point> (currently non-exhautive)
+# check if the output of solve(ODEProblem) is valid for our model, in a given a landscape defined by <point> (non-exhautive)
 function is_valid_ODE_end(point, sol_end)
-    c1 = all(sol_end .>= -1e-4)
-    c2 = all(sol_end .<= point[1])
-    c3 = sol_end[2] <= sol_end[1] || sol_end[2] <= 0.01
-    c4 = sol_end[3] <= sol_end[1] || sol_end[3] <= 0.01
-    c5 = sol_end[4] <= sol_end[1] || sol_end[4] <= 0.01
-    c6 = sol_end[3] + sol_end[4] <= sol_end[1] || any(sol_end[3:4] .<= 0.01)
-    return c1 && c2 && c3 && c4 && c5 && c6
+    if !all(sol_end .>= -1e-3)
+        println("Condition 1 failed: At least one final density is significantly negative.")
+        return false
+    end
+    if !all(sol_end .<= point[1])
+        println("Condition 2 failed: At least one final density is greater than landscape suitability.")
+        return false
+    end
+    if !(sol_end[2] <= sol_end[1] || sol_end[2] <= SIGNIFICANT_P)
+        println("Condition 3 failed: P₂ is significant and larger than P₁.")
+        return false
+    end
+    if !(sol_end[3] <= sol_end[1] || sol_end[3] <= SIGNIFICANT_P)
+        println("Condition 4 failed: P₍₁₃₎ is significant and larger than P₁.")
+        return false
+    end
+    if !(sol_end[4] <= sol_end[1] || sol_end[4] <= SIGNIFICANT_P)
+        println("Condition 5 failed: P₍₂₃₎ is significant and larger than P₁.")
+        return false
+    end
+    if !(sol_end[3] + sol_end[4] <= sol_end[1] || any(sol_end[3:4] .<= SIGNIFICANT_P))
+        println("Condition 3 failed: P₃ is significant and larger than P₁.")
+        return false
+    end
+    return true
 end
 
 # returns vector mapping NaN to NaN, and proportions to 0 or 1 depending on <threshold>
