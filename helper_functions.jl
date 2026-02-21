@@ -1,4 +1,7 @@
 using Revise
+using DifferentialEquations
+using DataFrames
+include(joinpath(@__DIR__, "ODEFinal.jl"))
 include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
 
 ################################################################################################################
@@ -46,7 +49,7 @@ end
 
 # check if the output of solve(ODEProblem) is valid for our model, in a given a landscape defined by <point> (non-exhautive)
 function is_valid_ODE_end(point, sol_end)
-    if !all(sol_end .>= -1e-3)
+    if !all(sol_end .>= -1e-4)
         println("Condition 1 failed: At least one final density is significantly negative.")
         return false
     end
@@ -228,4 +231,43 @@ function get_init_from_trophic_config(initial_densities, trophic_configuration)
     P23_init = I23 == 1 ? P23 : 0.0
     P13_init = I13 == 1 ? P13 : 0.0
     return [P1, P12, P23_init, P13_init, P11, Pu1]
+end
+
+################################################################################################################
+# GRID DIAGNOSTICS
+################################################################################################################
+
+function LiaoTypeGridOutputDiagnostics(model, baseParams, resourceParams, grain, init, timespan)
+    # input check
+    if !LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
+        error("{LiaoTypeGrid}: Invalid input.")
+    end
+    # create grid and empty dataframe
+    grid = create_unit_grid(grain)
+    data = DataFrame(
+        Availability=Float64[], Connectivity=Float64[],
+        DensityR=Float64[], Density2=Float64[], Density3=Float64[],
+        Density23=Float64[], Density13=Float64[],
+        PairDensity11=Float64[], PairDensityU1=Float64[], PairDensitySum=Float64[]
+    )
+    # populate dataframe
+    for point in grid
+        if !is_gridPoint_valid(point)
+            push!(data, (point[1], point[2], NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN))
+        else
+            UF = transform_goodLandscape_params([point[1], point[2]])
+            curr_params = [baseParams; UF; resourceParams]
+            curr_problem = ODEProblem(model, init, timespan, curr_params)
+            curr_solution = solve(curr_problem)
+            sol_end = curr_solution[end]
+            # check HERE
+            if !is_valid_ODE_end(point, sol_end)
+                error("{LiaoTypeGrid}: ODE solution violates model variable constraints.")
+            end
+            push!(data, (point[1], point[2],
+                sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4],
+                sol_end[5], sol_end[6], sol_end[5] + sol_end[6]))
+        end
+    end
+    return (data)
 end

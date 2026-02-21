@@ -11,6 +11,17 @@ include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
 # Note: each ODE has 6 variables (none dependent directly on time) and 16 parameters
 # Note: of a coexistance pattern, proportional persistance represents the area of the Liao Type plot it occupies
 
+# add an early-stopping threshold when P₁ gets very small, to avoid numerical instability.
+P1_STOPPING_THRESHOLD = 1e-6
+condition(u, t, integrator) = u[1] - P1_STOPPING_THRESHOLD
+affect!(integrator) = begin
+    # println("Stopping early: P1 became too small at t=$(integrator.t)")
+    # println("State = ", integrator.u)
+    terminate!(integrator)
+end
+cb = ContinuousCallback(condition, affect!)
+
+
 ################################################################################################################
 # DATA GENERATING FUNCTIONS
 ################################################################################################################
@@ -38,10 +49,12 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
             UF = transform_goodLandscape_params([point[1], point[2]])
             curr_params = [baseParams; UF; resourceParams]
             curr_problem = ODEProblem(model, init, timespan, curr_params)
-            curr_solution = solve(curr_problem)
+            curr_solution = solve(curr_problem, Rosenbrock23(); callback=cb)
             sol_end = curr_solution[end]
             # if the end solution is mathematically invalid, throw error
             if !is_valid_ODE_end(point, sol_end)
+                println(point)
+                println(sol_end)
                 error("{LiaoTypeGrid}: ODE solution violates model variable constraints.")
             end
             push!(data, (point[1], point[2], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4]))
@@ -190,7 +203,7 @@ function plotRun(model, params, init, timespan)
     # input check
     if plotRunValidInput(params, init, timespan)
         problem = ODEProblem(model, init, timespan, params)
-        solution = solve(problem)
+        solution = solve(problem; callback=cb)
         sol_end = solution[end]
         # output checks
         println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
@@ -318,12 +331,12 @@ end
 
 # Plot the "weighted proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
 # Note: it is assumed that <param_i> is the index of a parameter that ONLY varies between 0 and 1
-function WeightedProportionalPersistencePlot3(param_i, model, baseParams, resourceParams, grain, init, timespan)
+function WeightedProportionalPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
     # check input and generate plotting data
     if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
         error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
     end
-    plottingData = WeightedProportionalPersistenceData2(param_i, model, baseParams, resourceParams, grain, init, timespan)
+    plottingData = WeightedProportionalPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
     # plot
     colors = COEXISTANCE_PATTERN_COLORS
     plt = plot(plottingData.ParameterValue, plottingData.PP_3, label="Species 2",
@@ -340,7 +353,7 @@ function WeightedFragmentationPersistencePlot(param_i, model, baseParams, resour
     if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
         error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
     end
-    rawData = WeightedFragmentationPersistenceData3(param_i, model, baseParams, resourceParams, grain, init, timespan)
+    rawData = WeightedFragmentationPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
     plottingData = flatten_PP_statistics(rawData)
 
     # plot
@@ -362,5 +375,5 @@ function FigureGradeLiaoTypePlot(raw_LiaoTypePlot)
         size=(1600, 1000),
         framestyle=:box
     )
-    return raw_graph
+    return raw_LiaoTypePlot
 end
