@@ -1,4 +1,5 @@
 using Revise
+using Random
 include(joinpath(@__DIR__, "CONSTANTS", "modelsInfo.jl"))
 include(joinpath(@__DIR__, "plot_ODEFinal.jl"))
 include(joinpath(@__DIR__, "ODEFinal.jl"))
@@ -7,6 +8,7 @@ include(joinpath(@__DIR__, "sensitivity_analyses.jl"))
 
 ################################################################################################################
 
+Random.seed!(1236)
 grain = 0.01
 
 # SIMPLE SINGLE RUN
@@ -21,6 +23,7 @@ timespan = CANONICAL_TIMESPAN
 # initRand = SAMPLE_init()
 # plotRun(ExploitativeCompetition!, paramsRand, initRand, timespan)
 # LiaoTypeGrid(Resource!, p[1], p[2], grain, initRand, timespan)
+# m = LiaoTypeSpeciesRichnessMap(ExploitativeCompetition!, p[1], p[2], grain, initRand, timespan)
 
 # Liao-Type Stuff
 CANONICAL_PARAMS[4] = 0.05 # set intrinsic extinction of resource
@@ -32,5 +35,5 @@ CANONICAL_PARAMS[10] = 0 # set additive mortality rate due to 3 feeding on 1
 # x = ProportionalPersistencePoint8(ExploitativeCompetition!, CANONICAL_PARAMS, [0, 1, 0.025], grain, init, timespan)
 # ProportionalPersistencePlot(8, ExploitativeCompetition!, CANONICAL_PARAMS, [0., 1.0, 0.0], grain, init, timespan)
 # WeightedProportionalPersistencePlot(8, ExploitativeCompetition!, CANONICAL_PARAMS, [0., 1.0, 0.0], grain, init, timespan)
-# LiaoTypeSpeciesRichnessMap(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
+LiaoTypeSpeciesRichnessMap(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
 # testGrid = LiaoTypeGrid(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)

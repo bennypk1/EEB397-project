@@ -44,7 +44,7 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
             if !is_valid_ODE_end(point, sol_end)
                 error("{LiaoTypeGrid}: ODE solution violates model variable constraints.")
             end
-            push!(data, (point[1], point[1], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4]))
+            push!(data, (point[1], point[2], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4]))
         end
     end
     return (data)
@@ -111,7 +111,7 @@ function WeightedProportionalPersistencePoint(model, baseParams, resourceParams,
 end
 
 # Note: only savbes data for the 3 higher-order coexistance patterns
-function WeightedFragmentationPersistenceData3(param_i, model, baseParams, resourceParams, grain, init, timespan)
+function WeightedFragmentationPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
     # initialize return dataframe
     returnData = DataFrame(ParameterValue=Float64[], Avaliability=Float64[],
         PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
@@ -158,7 +158,7 @@ function WeightedFragmentationPersistenceData3(param_i, model, baseParams, resou
 end
 
 # generate a dataframe of weighted proportional persistence
-function WeightedProportionalPersistenceData2(param_i, model, baseParams, resourceParams, grain, init, timespan)
+function WeightedProportionalPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
     # init dataframe
     plottingData = DataFrame(ParameterValue=Float64[], PP_1=Float64[],
         PP_2=Float64[], PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
@@ -274,9 +274,8 @@ function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, in
     grid_length = 0:grain:1
     n = length(grid_length)
     Z_S = reshape(speciesDiversityData.SpeciesDistributionID, n, n)
-    p = heatmap(grid_length, grid_length, Z_S, title="Species Richness Across Landscape Types",
-        aspect_ratio=1, c=cgrad(:viridis, scale=:linear), clims=(0, 1), colorbar=false)
-    plot(p, size=(1600, 1000))
+    p = heatmap(grid_length, grid_length, Z_S, aspect_ratio=1, c=cgrad(:viridis, scale=:linear), clims=(0, 1), colorbar=false)
+    return p
 end
 
 # Plot the "proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
@@ -349,4 +348,19 @@ function WeightedFragmentationPersistencePlot(param_i, model, baseParams, resour
         linewidth=2, label="PP_3", xlabel="Parameter Value", ylabel="Mean Persistence (± SD)")
 end
 
-# TODO: have a switch: weighted = TRUE vs FALSE for the sensitivity analysis
+# plot-prettying function
+function FigureGradeLiaoTypePlot(raw_LiaoTypePlot)
+    plot!(
+        raw_LiaoTypePlot,
+        xlims=(0, 1),
+        guidefontsize=20,
+        tickfontsize=16,
+        titlefontsize=22,
+        legendfontsize=16,
+        grid=false,
+        minorgrid=false,
+        size=(1600, 1000),
+        framestyle=:box
+    )
+    return raw_graph
+end

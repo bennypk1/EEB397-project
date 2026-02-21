@@ -175,7 +175,7 @@ end
 function SAMPLE_fixedParameters(omnivoryBool=false)
     # main parameters data
     mainParametersData = generate_mainParameters_data(
-        0.1, CANONICAL_MAIN_BASE[1], CANONICAL_MAIN_BASE[2], CANONICAL_MAIN_BASE[3])
+        10, CANONICAL_MAIN_BASE[1], CANONICAL_MAIN_BASE[2], CANONICAL_MAIN_BASE[3])
     # loop
     while true
         # create candidate, marginally valid vector
