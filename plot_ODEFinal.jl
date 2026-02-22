@@ -15,8 +15,6 @@ include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
 P1_STOPPING_THRESHOLD = 1e-6
 condition(u, t, integrator) = u[1] - P1_STOPPING_THRESHOLD
 affect!(integrator) = begin
-    # println("Stopping early: P1 became too small at t=$(integrator.t)")
-    # println("State = ", integrator.u)
     terminate!(integrator)
 end
 cb = ContinuousCallback(condition, affect!)

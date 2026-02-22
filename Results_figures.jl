@@ -10,7 +10,7 @@ basePlotParams[4] = 0.15 # this is for more dramatic plots in the Resource plots
 basePlotInit = CANONICAL_INIT
 basePlotTimespan = [0, 100]
 # basePlotGrain = 0.0025
-basePlotGrain = 0.01
+basePlotGrain = 0.015
 basePlotParams_altered = copy(basePlotParams)
 
 
@@ -22,12 +22,12 @@ basePlotParams_altered[14] = 0.5
 basePlotParams_altered[15] = 0.5
 
 # change e and gamma HERE
-basePlotParams_altered[4] = 0.15
+basePlotParams_altered[4] = 0.05
 basePlotParams_altered[16] = 0
 
 # run the plot
 p = LiaoTypeSpeciesRichnessMap(
-    Resource!,
+    Omnivory!,
     basePlotParams_altered[1:11], basePlotParams_altered[14:16],
     basePlotGrain, basePlotInit, basePlotTimespan)
 FigureGradeLiaoTypePlot(p)
