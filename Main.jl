@@ -4,7 +4,6 @@ include(joinpath(@__DIR__, "CONSTANTS", "modelsInfo.jl"))
 include(joinpath(@__DIR__, "plot_ODEFinal.jl"))
 include(joinpath(@__DIR__, "ODEFinal.jl"))
 include(joinpath(@__DIR__, "helper_functions.jl"))
-include(joinpath(@__DIR__, "sensitivity_analyses.jl"))
 
 ################################################################################################################
 
@@ -35,5 +34,5 @@ CANONICAL_PARAMS[10] = 0 # set additive mortality rate due to 3 feeding on 1
 # x = ProportionalPersistencePoint8(ExploitativeCompetition!, CANONICAL_PARAMS, [0, 1, 0.025], grain, init, timespan)
 # ProportionalPersistencePlot(8, ExploitativeCompetition!, CANONICAL_PARAMS, [0., 1.0, 0.0], grain, init, timespan)
 # WeightedProportionalPersistencePlot(8, ExploitativeCompetition!, CANONICAL_PARAMS, [0., 1.0, 0.0], grain, init, timespan)
-LiaoTypeSpeciesRichnessMap(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
-# testGrid = LiaoTypeGrid(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
+# LiaoTypeSpeciesRichnessMap(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)
+testGrid = LiaoTypeGrid(ExploitativeCompetition!, CANONICAL_PARAMS, [1, 0, 0], grain, init, timespan)

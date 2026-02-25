@@ -210,3 +210,44 @@ function goofLeg!(dP, P, params, t)
                 α * pᵤ₀ * ((z - 1) / z * q₁₀) +
                 β * pᵤ₀ * P₁
 end
+
+function SimpleFoodChain_GlobalConsumers!(dP, P, params, t)
+        # parameters and variables
+        c₂, c₃₂, c₃₁, e₁, e₂, e₃₂, e₃₁, μ₂₁, μ₃₂, μ₃₁, z, U, F, α, β, γ = params
+        P₁, P₍₁₂₎, P₍₂₃₎, P₍₁₃₎, P₁₁, Pᵤ₁ = P
+        # derived variables
+        fill!(dP, 0.0)
+        S = 1 - U
+        pᵤ = U
+        pᵤᵤ = 1 - 2S + (1 - F) * S
+        p₀ = 1 - P₁ - pᵤ
+        q₁₁ = P₁₁ / P₁
+        qᵤ₁ = Pᵤ₁ / P₁
+        p₀₁ = P₁ - P₁₁ - Pᵤ₁
+        pᵤ₀ = pᵤ - pᵤᵤ - Pᵤ₁
+        q₁₀ = p₀₁ / p₀
+        # Resource
+        dP[1] = α * (1 - q₁₁ - qᵤ₁) * P₁ +
+                β * (S - P₁) * P₁ -
+                γ * q₁₁ * P₁ -
+                e₁ * P₁ -
+                μ₂₁ * P₍₁₂₎
+        # Consumer
+        dP[2] = c₂ * P₍₁₂₎ * (P₁ - P₍₁₂₎) -
+                (γ * q₁₁ + e₁ + e₂ + μ₂₁) * P₍₁₂₎ -
+                μ₃₂ * P₍₂₃₎
+        # Top Predator
+        dP[3] = c₃₂ * P₍₂₃₎ * (P₍₁₂₎ - P₍₂₃₎) -
+                (γ * q₁₁ + e₁ + e₂ + e₃₂ + μ₂₁ + μ₃₂) * P₍₂₃₎
+        # moment closure
+        dP[5] = -e₁ * P₁₁ -
+                γ * P₁₁ * (1 / z + (z - 1) / z * q₁₁) +
+                α * p₀₁ * (1 / z + (z - 1) / z * q₁₀) +
+                β * p₀₁ * P₁ -
+                (μ₂₁ * P₍₁₂₎ / P₁) * P₁₁
+        dP[6] = -e₁ * Pᵤ₁ -
+                γ * Pᵤ₁ * ((z - 1) / z * q₁₁) +
+                α * pᵤ₀ * ((z - 1) / z * q₁₀) +
+                β * pᵤ₀ * P₁ -
+                (μ₂₁ * P₍₁₂₎ / P₁) * Pᵤ₁
+end

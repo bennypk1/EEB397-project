@@ -9,7 +9,7 @@ include(joinpath(@__DIR__, "CONSTANTS", "visualConventions.jl"))
 
 
 # Note: each ODE has 6 variables (none dependent directly on time) and 16 parameters
-# Note: of a coexistance pattern, proportional persistance represents the area of the Liao Type plot it occupies
+# Note: of a coexistance pattern, proportional persistance := the area of the Liao Type plot it occupies
 
 # add an early-stopping threshold when P₁ gets very small, to avoid numerical instability.
 P1_STOPPING_THRESHOLD = 1e-6
@@ -19,12 +19,11 @@ affect!(integrator) = begin
 end
 cb = ContinuousCallback(condition, affect!)
 
-
 ################################################################################################################
 # DATA GENERATING FUNCTIONS
 ################################################################################################################
 
-# simulate model accross grid and return data 
+# simulate model accross grid and return data (optimized data allocation comapred to LEGACY)
 # NOTE: <baseParams> consists of the first 11 nuisance parameters
 # NOTE: <resourceParams> are the last 3 parameters that specify the resource life-history
 function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
@@ -32,60 +31,84 @@ function LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
     if !LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespan)
         error("{LiaoTypeGrid}: Invalid input.")
     end
-    # create grid and empty dataframe
+    # create grid, empty dataframe ODE problem
     grid = create_unit_grid(grain)
-    data = DataFrame(
-        Availability=Float64[], Connectivity=Float64[],
-        DensityR=Float64[], Density2=Float64[], Density3=Float64[],
-        Density23=Float64[], Density13=Float64[]
+    gridSize = length(grid)
+    data = DataFrame( # fastest way to initialize this kind of dataframe
+        Availability=Vector{Float64}(undef, gridSize),
+        Connectivity=Vector{Float64}(undef, gridSize),
+        DensityR=Vector{Float64}(undef, gridSize),
+        Density2=Vector{Float64}(undef, gridSize),
+        Density3=Vector{Float64}(undef, gridSize),
+        Density23=Vector{Float64}(undef, gridSize),
+        Density13=Vector{Float64}(undef, gridSize)
     )
+    # preallocate problem and parameter vector
+    p = [baseParams; zeros(2); resourceParams]
+    p_useful_index = length(baseParams) + 1
+    base_problem = ODEProblem(model, init, timespan, p)
     # populate dataframe
-    for point in grid
+    for (i, point) in enumerate(grid)
+        # save the current point
+        data.Availability[i] = point[1]
+        data.Connectivity[i] = point[2]
+        # point is invalid, fill with NaN
         if !is_gridPoint_valid(point)
-            push!(data, (point[1], point[2], NaN, NaN, NaN, NaN, NaN))
+            data.DensityR[i] = NaN
+            data.Density2[i] = NaN
+            data.Density3[i] = NaN
+            data.Density23[i] = NaN
+            data.Density13[i] = NaN
+            # otherwise, cacluate ODE solution
         else
-            UF = transform_goodLandscape_params([point[1], point[2]])
-            curr_params = [baseParams; UF; resourceParams]
-            curr_problem = ODEProblem(model, init, timespan, curr_params)
-            curr_solution = solve(curr_problem, Rosenbrock23(); callback=cb)
+            # create current parameter vector
+            p[p_useful_index:p_useful_index+1] .= transform_goodLandscape_params(point)
+            # initializeand solve ODE problem
+            curr_problem = remake(base_problem; p=p) # using remake for performance
+            curr_solution = solve(curr_problem, Tsit5(); callback=cb) # using Tsit5() for performance
             sol_end = curr_solution[end]
             # if the end solution is mathematically invalid, throw error
             if !is_valid_ODE_end(point, sol_end)
-                println(point)
-                println(sol_end)
                 error("{LiaoTypeGrid}: ODE solution violates model variable constraints.")
             end
-            push!(data, (point[1], point[2], sol_end[1], sol_end[2], sol_end[3] + sol_end[4], sol_end[3], sol_end[4]))
+            # update dataframe
+            data.DensityR[i] = sol_end[1]
+            data.Density2[i] = sol_end[2]
+            data.Density3[i] = sol_end[3] + sol_end[4]
+            data.Density23[i] = sol_end[3]
+            data.Density13[i] = sol_end[4]
         end
     end
     return (data)
 end
 
-# runs LiaoTypeGrid, then checks if the links are persisting at a given point
-function LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
-    # get raw grid data simGridData + threshold
+# augment LiaoTypeGrid dataframe with persistence data
+function LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
+    # get raw grid data simGridData
     rawGridData = LiaoTypeGrid(model, baseParams, resourceParams, grain, init, timespan)
-    n = nrow(rawGridData)
-    t = PERSISTENCE_THRESHOLD
     # return a dataframe augmented with binary persistence data
     newData = DataFrame(
         Availability=rawGridData.Availability, Connectivity=rawGridData.Connectivity,
         DensityR=rawGridData.DensityR, Density2=rawGridData.Density2, Density3=rawGridData.Density3,
         Density23=rawGridData.Density23, Density13=rawGridData.Density13,
-        PersistenceR=discretizeDensity(rawGridData.DensityR, t),
-        Persistence2=discretizeDensity(rawGridData.Density2, t),
-        Persistence3=discretizeDensity(rawGridData.Density3, t),
-        Persistence23=discretizeDensity(rawGridData.Density23, t),
-        Persistence13=discretizeDensity(rawGridData.Density13, t))
+        PersistenceR=discretizeDensity(rawGridData.DensityR, threshold),
+        Persistence2=discretizeDensity(rawGridData.Density2, threshold),
+        Persistence3=discretizeDensity(rawGridData.Density3, threshold),
+        Persistence23=discretizeDensity(rawGridData.Density23, threshold),
+        Persistence13=discretizeDensity(rawGridData.Density13, threshold))
     return newData
 end
 
 # generates a single point vector, to be plotted in <ProportionalPersistencePlot>
-function ProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan)
+function ProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
     # get augmented sim data, add distribution IDs, and save it's number of rows
-    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold)
     simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
     n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
+    # input check
+    if !(n_valid_landscapes > 0)
+        error("{ProportionalPersistencePoint}: simGridData somehow has no valid landscapes.")
+    end
     # for each unique distribution ID, caclulate its proportional persistence
     pointVector = zeros(length(SPECIES_DISTRIBUTION_IDS))
     for i in eachindex(SPECIES_DISTRIBUTION_IDS)
@@ -93,7 +116,7 @@ function ProportionalPersistencePoint(model, baseParams, resourceParams, grain, 
         pointVector[i] = count(simGridData.SpeciesDistributionID .== curr_ID) / n_valid_landscapes
     end
     # output check
-    if abs(sum(pointVector) - 1) > grain^2 # threshold chosen arbitrarily
+    if abs(sum(pointVector) - 1) > grain^2 # checking threshold chosen arbitrarily
         error("{ProportionalPersistencePoint}: Point vector sum is very different from 1")
     end
     return pointVector
@@ -101,11 +124,15 @@ end
 
 # generates a single point vector, to be plotted in <WeightedProportionalPersistencePlot>
 # Note: this function weighs the proportion of each coexistance pattern by the mean equilibrium resource density accross it's range
-function WeightedProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan)
+function WeightedProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
     # get augmented sim data, add distribution IDs, and save it's number of rows
-    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; hreshold)
     simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
     n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
+    # input check
+    if !(n_valid_landscapes > 0)
+        error("{WeightedProportionalPersistencePoint}: simGridData somehow has no valid landscapes.")
+    end
     # for each unique distribution ID, caclulate its proportional persistence
     weightedPointVector = zeros(length(SPECIES_DISTRIBUTION_IDS))
     for i in eachindex(SPECIES_DISTRIBUTION_IDS)
@@ -121,59 +148,17 @@ function WeightedProportionalPersistencePoint(model, baseParams, resourceParams,
     return weightedPointVector
 end
 
-# Note: only savbes data for the 3 higher-order coexistance patterns
-function WeightedFragmentationPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    # initialize return dataframe
-    returnData = DataFrame(ParameterValue=Float64[], Avaliability=Float64[],
-        PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
-
-    # for each fixed parameter value...
-    for parameter_value in 0.025:PP_GRAIN:0.5
-
-        # 1) alter model parmeter inputs as required, and get data
-        baseParams1 = copy(baseParams)
-        resourceParams1 = copy(resourceParams)
-        if param_i < 12
-            baseParams1[param_i] = parameter_value
-        elseif param_i >= 14 && param_i <= 16
-            resourceParams1[param_i-14+1] = parameter_value
-        else
-            error("{ProportionalPersistencePlot}: Parameter index chosen is invalid.")
-        end
-        simGridData = LiaoTypeGridExtra(model, baseParams1, resourceParams1, grain, init, timespan)
-        simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
-
-        # 2) for each fixed Availability point, save results
-        for availability in 0:grain:1
-            # setup
-            fragmentation_gradient_data = simGridData[simGridData.Availability.==availability, :]
-            n_valid_landscapes = count(!isnan, fragmentation_gradient_data.SpeciesDistributionID)
-            pp = zeros(3)
-            # for each higher-order coexistance pattern, get it's weighted proportional persistence over the fragmentation gradient
-            for i in 3:5
-                curr_ID = SPECIES_DISTRIBUTION_IDS[i]
-                filtered_data = fragmentation_gradient_data[fragmentation_gradient_data.SpeciesDistributionID.==curr_ID, :]
-                # handle if this species coexistance pattern does not exist in the given data
-                if nrow(filtered_data) == 0
-                    pp[i-2] = 0.0
-                else
-                    pp[i-2] = sum(filtered_data.DensityR) / n_valid_landscapes
-                end
-            end
-            # save results
-            push!(returnData, (ParameterValue=parameter_value, Avaliability=availability,
-                PP_3=pp[1], PP_4=pp[2], PP_5=pp[3]))
-        end
+# generalized function to generate proportional persistence data accross a customizable parameter gradient
+function ProportionalPersistenceData(param_i, param_lb, param_ub, model, baseParams, resourceParams, landscapeGrain, init, timespan; threshold=0.05, pointFunction=ProportionalPersistencePoint, PP_grain=0.1)
+    # check input
+    if param_lb < 0.025 || param_ub > 1
+        error("{ProportionalPersistenceData}: Input parameter bounds are invalid.")
     end
-    return returnData
-end
-
-# generate a dataframe of weighted proportional persistence
-function WeightedProportionalPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
     # init dataframe
     plottingData = DataFrame(ParameterValue=Float64[], PP_1=Float64[],
         PP_2=Float64[], PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
-    for parameter_value in 0.025:PP_GRAIN:0.5
+
+    for parameter_value in param_lb:PP_grain:param_ub
         # alter model parmeter inputs as required
         baseParams1 = copy(baseParams)
         resourceParams1 = copy(resourceParams)
@@ -182,10 +167,10 @@ function WeightedProportionalPersistenceData(param_i, model, baseParams, resourc
         elseif param_i >= 14 && param_i <= 16
             resourceParams1[param_i-14+1] = parameter_value
         else
-            error("{ProportionalPersistencePlot}: Parameter index chosen is invalid.")
+            error("{ProportionalPersistenceData}: Parameter index chosen is invalid.")
         end
-        # run model and push Weighted PP results to plotting data
-        pp = WeightedProportionalPersistencePoint(model, baseParams1, resourceParams1, grain, init, timespan)
+        # run model and push PP results to plotting data
+        pp = pointFunction(model, baseParams1, resourceParams1, landscapeGrain, init, timespan, threshold)
         push!(plottingData, (ParameterValue=parameter_value, PP_1=pp[1], PP_2=pp[2],
             PP_3=pp[3], PP_4=pp[4], PP_5=pp[5]))
     end
@@ -204,8 +189,8 @@ function plotRun(model, params, init, timespan)
         solution = solve(problem; callback=cb)
         sol_end = solution[end]
         # output checks
-        println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
-        println("Minimum Dynamic Variable is: ", round(minimum(sol_end); digits=4))
+        # println("Final Pair Sums Less than P1?: ", sol_end[5] + sol_end[6] < sol_end[1])
+        # println("Minimum Dynamic Variable is: ", round(minimum(sol_end); digits=4))
         # plot solution
         plt = plot(
             solution, size=(1600, 1000),
@@ -244,37 +229,10 @@ function LiaoTypeHeatMap(model, baseParams, resourceParams, grain, init, timespa
     plot(pR, p2, p3, p23, p13, size=(1600, 1000))
 end
 
-# plots 5 binary persistence maps, 4 for the raw links + 1 for the combined top predator density
-function LiaoTypePersistenceMap(model, baseParams, resourceParams, grain, init, timespan)
-    # get simGridData
-    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
-    # setup
-    grid_length = 0:grain:1
-    n = length(grid_length)
-    Z_R = reshape(simGridData.PersistenceR, n, n)
-    Z_2 = reshape(simGridData.Persistence2, n, n)
-    Z_3 = reshape(simGridData.Persistence3, n, n)
-    Z_23 = reshape(simGridData.Persistence23, n, n)
-    Z_13 = reshape(simGridData.Persistence13, n, n)
-    # create heatmaps
-    pR = heatmap(grid_length, grid_length, Z_R, title="Resource Persistence (P₁)",
-        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
-    p2 = heatmap(grid_length, grid_length, Z_2, title="Consumer Persistence (P₂)",
-        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
-    p3 = heatmap(grid_length, grid_length, Z_3, title="Tertiary Persistence (P₃)",
-        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
-    p23 = heatmap(grid_length, grid_length, Z_23, title="2-3 Link Persistence (P₍₂₃₎)",
-        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
-    p13 = heatmap(grid_length, grid_length, Z_13, title="1-3 Link Persistence (P₍₁₃₎)",
-        aspect_ratio=1, c=cgrad(:grays, rev=true, scale=:linear), clims=(0, 1), colorbar=false)
-    # arrange plots
-    plot(pR, p2, p3, p23, p13, size=(1600, 1000))
-end
-
 # assigns each point on the LiaoType plot a color. Each colors is a unique species combination
-function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, init, timespan)
+function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
     # get augmented sim data
-    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan)
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold)
     # create diversity dataset
     speciesDiversityData = DataFrame(
         Availability=simGridData.Availability,
@@ -289,77 +247,11 @@ function LiaoTypeSpeciesRichnessMap(model, baseParams, resourceParams, grain, in
     return p
 end
 
-# Plot the "proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
-# y-axis: interpreted as the fraction of all possible habitat types in which this coexistance pattern is observed
-# Note: it is assumed that <param_i> is the index of a parameter that ONLY varies between 0 and 1
-function ProportionalPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    # check input
-    if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
-        error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
-    end
-    # generate plotting data
-    plottingData = DataFrame(ParameterValue=Float64[], PP_1=Float64[],
-        PP_2=Float64[], PP_3=Float64[], PP_4=Float64[], PP_5=Float64[])
-    for parameter_value in 0.025:PP_GRAIN:0.5
-        # alter model parmeter inputs as required
-        baseParams1 = copy(baseParams)
-        resourceParams1 = copy(resourceParams)
-        if param_i < 12
-            baseParams1[param_i] = parameter_value
-        elseif param_i >= 14 && param_i <= 16
-            resourceParams1[param_i-14+1] = parameter_value
-        else
-            error("{ProportionalPersistencePlot}: Parameter index chosen is invalid.")
-        end
-        # run model and push PP results to plotting data
-        pp = ProportionalPersistencePoint(model, baseParams1, resourceParams1, grain, init, timespan)
-        push!(plottingData, (ParameterValue=parameter_value, PP_1=pp[1], PP_2=pp[2],
-            PP_3=pp[3], PP_4=pp[4], PP_5=pp[5]))
-    end
-    # plot
-    colors = ["#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"]
-    plt = plot(plottingData.ParameterValue, plottingData.PP_1, label="PP₁",
-        xlabel=get_label_from_param_i(param_i),
-        ylabel="Proportional Persistence", lw=10, color=colors[1], size=(1600, 1000))
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_2, label="PP₂", lw=10, color=colors[2])
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_3, label="PP₃", lw=10, color=colors[3])
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_4, label="PP₄", lw=10, color=colors[4])
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_5, label="PP₅", lw=10, color=colors[5])
-end
+###############################################################################################################
+# PLOTS SPECIFICALLY FOR RESULTS SECTION
+###############################################################################################################
 
-# Plot the "weighted proportional persistence" of all 5 possible coexistance patterns as a function of <param_i>
-# Note: it is assumed that <param_i> is the index of a parameter that ONLY varies between 0 and 1
-function WeightedProportionalPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    # check input and generate plotting data
-    if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
-        error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
-    end
-    plottingData = WeightedProportionalPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    # plot
-    colors = COEXISTANCE_PATTERN_COLORS
-    plt = plot(plottingData.ParameterValue, plottingData.PP_3, label="Species 2",
-        xlabel=get_label_from_param_i(param_i),
-        ylabel="Proportional Persistence", lw=10, color=colors[3], size=(1600, 1000))
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_4, label="Species 3", lw=10, color=colors[4])
-    plot!(plt, plottingData.ParameterValue, plottingData.PP_5, label="Species 2 & 3", lw=10, color=colors[5])
-end
-
-# plots the weighted proportional persistence of the 3  coexistance patterns as a function of <param_i>.
-# Note: here, persistence is measured for a fixed habitat availability, and therefore measures the proportion of fragmentation extents it can occupy
-function WeightedFragmentationPersistencePlot(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    # check input, then generate plotting data
-    if !(param_i in CANDIADATE_PP_PARAMETER_INDICES)
-        error("{ProportionalPersistencePlot}: Parameter index chosen is invalid or not yet accounted for.")
-    end
-    rawData = WeightedFragmentationPersistenceData(param_i, model, baseParams, resourceParams, grain, init, timespan)
-    plottingData = flatten_PP_statistics(rawData)
-
-    # plot
-    plot(plottingData.ParameterValue, plottingData.PP_3_mean, ribbon=plottingData.PP_3_sd,
-        linewidth=2, label="PP_3", xlabel="Parameter Value", ylabel="Mean Persistence (± SD)")
-end
-
-# plot-prettying function
+# plot-prettying function for <LiaoTypeSpeciesRichnessMap>
 function FigureGradeLiaoTypePlot(raw_LiaoTypePlot)
     plot!(
         raw_LiaoTypePlot,
@@ -374,4 +266,18 @@ function FigureGradeLiaoTypePlot(raw_LiaoTypePlot)
         framestyle=:box
     )
     return raw_LiaoTypePlot
+end
+
+function Figure3_2b(ppData_gamma, ppData_e1)
+    plot1 = plot(ppData_gamma.ParamerterValue,
+        1 - ppData_gamma.PP_1, # resource PP for gamma
+        size=(1600, 1000),
+        lw=10)
+    # plot1 = plot(ppData_gamma.ParamerterValue,
+    #              ppData_gamma.PP_3 + ppData_gamma.PP_4 + ppData_gamma.PP_5, # consumer PP for gamma
+    #              size=(1600, 1000),
+    #              lw = 10)
+    return plot1
+    # plot2 = plot(ppData_e1.ParamerterValue, ppData_e1.PP_3 + ppData_e1.PP_4 + ppData_e1.PP_5)
+
 end
