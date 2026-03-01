@@ -5,7 +5,8 @@ using DataFrames
 # MODEL PARAMETERS
 
 # "safe" parameter combination inspired by Liao Supplimentary Material. Defines c, e, μ, and z
-CANONICAL_PARAMS = [1, 1, 1, 0.05, 0.05, 0.05, 0.05, 0.0025, 0.0025, 0.0025, 4]
+CANONICAL_PARMS = [1, 1, 1, 0.05, 0.05, 0.05, 0.05, 0.0025, 0.0025, 0.0025, 4]
+CANONICAL_FULL = [CANONICAL_PARMS; [1, 0, 0]]
 
 # starting densities used by Liao
 CANONICAL_INIT = [0.01, 0.005, 0.0025, 0.0025, 0.002, 0.005]

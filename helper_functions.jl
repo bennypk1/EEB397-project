@@ -47,6 +47,38 @@ function LiaoTypeGridValidInput(baseParams, resourceParams, grain, init, timespa
     return c1 && c2 && !c3 && c0
 end
 
+function mean_nonzero_diff(data; tol=1e-12)
+    d = diff(data)
+    # Filter for absolute values larger than tolerance
+    nonzero_d = d[abs.(d).>tol]
+    return mean(nonzero_d)
+end
+
+function no_meaningful_slope_violation(resourceDat, consumerDat; tol=0.01)
+    # input checks
+    if length(resourceDat) != length(consumerDat)
+        error("{meaningful_slope_violation}: resource and consumer threshold Vectors have differing lengths.")
+    end
+    if !(all(diff(resourceDat) .<= 0.0) && all(diff(consumerDat) .<= 0.0))
+        error("{TargetCommunity_consumerper...}: some estimated slopes are positive.")
+    end
+    # if consumer difference from [1] to [2] if very small, disregard this example
+    if (consumerDat[2] - consumerDat[1] < tol)
+        return true
+    end
+    # get slopes
+    slopeR = mean_nonzero_diff(resourceDat)
+    slopeC = mean_nonzero_diff(consumerDat)
+
+    # verify claim
+    if (abs(slopeC) - abs(slopeR) > -tol)
+        return true
+    else
+        println([slopeR, slopeC])
+        return false
+    end
+end
+
 # check if the output of solve(ODEProblem) is valid for our model, in a given a landscape defined by <point> (non-exhautive)
 function is_valid_ODE_end(point, sol_end)
     if !all(sol_end .>= -1e-4)
