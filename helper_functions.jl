@@ -160,6 +160,21 @@ function flatten_PP_statistics(df)
     return flattened
 end
 
+# checks if elements in vector are equal to each other, given some tolerance
+function equal_within_tolerance(numericVector; tol=0.01)
+    # if vector is empty, throw error
+    if length(numericVector) == 0
+        error("{equal_within_tolerance}: inputted numeric vector has no elements.")
+    end
+    ref = numericVector[1]
+    for element in numericVector
+        if abs(element - ref) > tol
+            return false
+        end
+    end
+    return true
+end
+
 
 ################################################################################################################
 # SMALL HELPERS

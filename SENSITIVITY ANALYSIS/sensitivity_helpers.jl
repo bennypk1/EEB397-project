@@ -99,14 +99,13 @@ function is_parms_valid(candidateNuisanceParms; noJoint=true)
 end
 
 ###############################################################################################################
-# AUGMENTING PROCESSED AND VALIDATED PARAMETER DATA
+# AUGMENTING PROCESSED (AND VALIDATED) PARAMETER DATA
 ###############################################################################################################
 
-# map <nuisanceParms> to full parameter list (excluding U, F), assuming CANONICAL_MAIN_BASE
-function assemble_parameters(nuisanceParms)
+# map <compactParms> to full parameter list (excluding U, F)
+function assemble_parms(compactParms)
     # unpack parameter vectors
-    cₙ, eₙ, μₙ, α = nuisanceParms
-    e₁, γ, δ = SENSITIVITY_MAIN_BASE
+    cₙ, eₙ, μₙ, α, e₁, γ = compactParms
     # assign (in order)
     c₂ = cₙ
     c₃₂ = cₙ
@@ -114,7 +113,7 @@ function assemble_parameters(nuisanceParms)
     e₂ = eₙ
     e₃₂ = eₙ
     e₃₁ = eₙ
-    μ₂₁ = δ * μₙ
+    μ₂₁ = μₙ
     μ₃₂ = μₙ
     μ₃₁ = μₙ
     z = 4
@@ -123,11 +122,10 @@ function assemble_parameters(nuisanceParms)
 end
 
 # generate new dataframe of full parameters from reduce list of sampled parametrs
-# Note: <filteredCandidates> must be output from filter_candidate_nuisance_params_by_validity!()
-function augment_filtered_nuisance_parms(filteredCandidates)
+function augment_compact_parms(compactParms)
     # input check
-    if !(ncol(filteredCandidates) == 4)
-        error("{augment_filtered_nuisance_parms}: input dataframe does not have exactly 4 columns.")
+    if !(ncol(compactParms) == 6)
+        error("{augment_compact_parms}: input dataframe does not have exactly 6 columns.")
     end
     # initialize full dataframe
     fullData = DataFrame(c2=Float64[], c32=Float64[], c31=Float64[],
@@ -135,8 +133,8 @@ function augment_filtered_nuisance_parms(filteredCandidates)
         mu21=Float64[], mu32=Float64[], mu31=Float64[],
         z=Float64[], alpha=Float64[], beta=Float64[], gamma=Float64[])
     # iterate over each row of nuisance parameters
-    for row in eachrow(filteredCandidates)
-        curr_out = assemble_parameters(row)
+    for row in eachrow(compactParms)
+        curr_out = assemble_parms(row)
         new_fullData_row = (c2=curr_out[1], c32=curr_out[2], c31=curr_out[3],
             e1=curr_out[4], e2=curr_out[5], e32=curr_out[6], e31=curr_out[7],
             mu21=curr_out[8], mu32=curr_out[9], mu31=curr_out[10],

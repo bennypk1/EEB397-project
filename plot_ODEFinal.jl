@@ -20,7 +20,7 @@ end
 cb = ContinuousCallback(condition, affect!)
 
 ################################################################################################################
-# DATA GENERATING FUNCTIONS
+# DATA GENERATING FUNCTIONS (MAIN)
 ################################################################################################################
 
 # simulate model accross grid and return data (optimized data allocation comapred to LEGACY)
@@ -124,25 +124,25 @@ function ProportionalPersistencePoint(model, baseParams, resourceParams, grain, 
         pointVector[i] = count(simGridData.SpeciesDistributionID .== curr_ID) / n_valid_landscapes
     end
     # output check
-    if abs(sum(pointVector) - 1) > grain^2 # checking threshold chosen arbitrarily
+    if abs(sum(pointVector) - 1) > 0.01 # checking threshold chosen arbitrarily
         error("{ProportionalPersistencePoint}: Point vector sum is very different from 1")
     end
     return pointVector
 end
 
-# generates a single point vector, to be plotted in <WeightedProportionalPersistencePlot>
-# Note: this function weighs the proportion of each coexistance pattern by the mean equilibrium resource density accross it's range
-function WeightedProportionalPersistencePoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
+# weights landscapes by their equilibrium resource density (proxy for quality)
+function WeightedByResourcePersistencePoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
     # get augmented sim data, add distribution IDs, and save it's number of rows
-    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; hreshold)
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold)
     simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
     n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
     # input check
     if !(n_valid_landscapes > 0)
-        error("{WeightedProportionalPersistencePoint}: simGridData somehow has no valid landscapes.")
+        error("{WeightedByResourcePersistencePoint}: simGridData somehow has no valid landscapes.")
     end
-    # for each unique distribution ID, caclulate its proportional persistence
+    # initialize return vector
     weightedPointVector = zeros(length(SPECIES_DISTRIBUTION_IDS))
+    # loop through coexistance patterns
     for i in eachindex(SPECIES_DISTRIBUTION_IDS)
         curr_ID = SPECIES_DISTRIBUTION_IDS[i]
         filtered_data = simGridData[simGridData.SpeciesDistributionID.==curr_ID, :]
@@ -156,10 +156,30 @@ function WeightedProportionalPersistencePoint(model, baseParams, resourceParams,
     return weightedPointVector
 end
 
+# returns a 5-length vector of average link density accross all landscapes (5th entry is always 0.0, just there for compatability)
+# Note: from this you can get individual species mean density
+function LinkDensityPersistencePoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
+    # get augmented sim data, add distribution IDs, and save it's number of rows
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold)
+    filtered_simGridData = simGridData[.!isnan.(simGridData.DensityR), :]
+    n_valid_landscapes = nrow(filtered_simGridData)
+    # input check
+    if !(n_valid_landscapes > 0)
+        error("{LinkDensityPersistencePoint}: simGridData somehow has no valid landscapes.")
+    end
+    linkVector = zeros(5)
+    linkVector[1] = mean(filtered_simGridData.DensityR)
+    linkVector[2] = mean(filtered_simGridData.Density2)
+    linkVector[3] = mean(filtered_simGridData.Density13)
+    linkVector[4] = mean(filtered_simGridData.Density23)
+    linkVector[5] = 0.0
+    return linkVector
+end
+
 # generalized function to generate proportional persistence data accross a customizable parameter gradient
 function ProportionalPersistenceData(param_i, param_lb, param_ub, model, baseParams, resourceParams, landscapeGrain, init, timespan; threshold=0.05, pointFunction=ProportionalPersistencePoint, PP_grain=0.1)
     # check input
-    if param_lb < 0.025 || param_ub > 1
+    if param_lb < 0 || param_ub > 1
         error("{ProportionalPersistenceData}: Input parameter bounds are invalid.")
     end
     # init dataframe
@@ -183,6 +203,86 @@ function ProportionalPersistenceData(param_i, param_lb, param_ub, model, basePar
             PP_3=pp[3], PP_4=pp[4], PP_5=pp[5]))
     end
     return plottingData
+end
+
+################################################################################################################
+# DATA GENERATING FUNCTIONS (LANDSCAPE STATS)
+################################################################################################################
+
+# finds key landscape statistics about each coexistance pattern in a model run
+function LandscapeStatsPoint(model, baseParams, resourceParams, grain, init, timespan; threshold=0.05)
+    # get augmented sim data, add distribution IDs, and save it's number of rows
+    simGridData = LiaoTypeGridExtra(model, baseParams, resourceParams, grain, init, timespan; threshold)
+    simGridData.SpeciesDistributionID = assignSpeciesDistributionID(simGridData)
+    n_valid_landscapes = count(!isnan, simGridData.SpeciesDistributionID)
+    # input check
+    if !(n_valid_landscapes > 0)
+        error("{LandscapeStatsPoint}: simGridData somehow has no valid landscapes.")
+    end
+    # initialize dataframe
+    landscapeStats = DataFrame(
+        DistributionID=zeros(length(SPECIES_DISTRIBUTION_IDS)),
+        PP=zeros(length(SPECIES_DISTRIBUTION_IDS)),
+        MeanConnectivity=zeros(length(SPECIES_DISTRIBUTION_IDS)),
+        MeanAvailability=zeros(length(SPECIES_DISTRIBUTION_IDS)),
+        MinConnectivity=zeros(length(SPECIES_DISTRIBUTION_IDS)),
+        MinAvailability=zeros(length(SPECIES_DISTRIBUTION_IDS))
+    )
+    # run over each coexistance pattern and get target stats
+    for i in eachindex(SPECIES_DISTRIBUTION_IDS)
+        # initial computations
+        curr_ID = SPECIES_DISTRIBUTION_IDS[i]
+        filtered_data = simGridData[simGridData.SpeciesDistributionID .== curr_ID, :]
+        num_rows = nrow(filtered_data)
+        landscapeStats.DistributionID[i] = curr_ID
+        # if this coexistance pattern exists, do as normal
+        if num_rows > 0
+            landscapeStats.PP[i] = num_rows / n_valid_landscapes
+            landscapeStats.MeanConnectivity[i] = mean(filtered_data.Connectivity)
+            landscapeStats.MeanAvailability[i] = mean(filtered_data.Availability)
+            landscapeStats.MinConnectivity[i] = minimum(filtered_data.Connectivity)
+            landscapeStats.MinAvailability[i] = minimum(filtered_data.Availability)
+        # otherwise, fill with NaN
+        else
+            # If no data found for this ID, set to 0 or NaN
+            landscapeStats.PP[i] = 0.0 # set to 0, rest to NaN
+            landscapeStats.MeanConnectivity[i] = NaN
+            landscapeStats.MeanAvailability[i] = NaN
+            landscapeStats.MinConnectivity[i] = NaN
+            landscapeStats.MinAvailability[i] = NaN
+        end
+    end
+    return landscapeStats
+end
+
+# gets all landscape data associated with changes in a specific parameter <param_i>, for a specific system <model>
+function AllLandscapeData(param_i, param_lb, param_ub, model, baseParams, resourceParams; landscapeGrain=0.05, init=CANONICAL_INIT, timespan=CANONICAL_TIMESPAN, threshold=0.05, PP_grain=0.1)
+    # check input
+    if param_lb < 0 || param_ub > 1
+        error("{AllLandscapeData}: Input parameter bounds are invalid.")
+    end
+    # init return dataframe
+    allStats = DataFrame()
+    # get dataframes accross all parameter points
+    for parameter_value in param_lb:PP_grain:param_ub
+        # alter model parmeter inputs as required
+        baseParams1 = copy(baseParams)
+        resourceParams1 = copy(resourceParams)
+        if param_i < 12
+            baseParams1[param_i] = parameter_value
+        elseif param_i >= 14 && param_i <= 16
+            resourceParams1[param_i-14+1] = parameter_value
+        else
+            error("{ProportionalPersistenceData}: Parameter index chosen is invalid.")
+        end
+        # get dataframe for this parameter value
+        pointData = LandscapeStatsPoint(model, baseParams1, resourceParams1, landscapeGrain, init, timespan; threshold)
+        # add the parameter value column to the data
+        pointData[!, :ParameterValue] .= parameter_value
+        # update allStats
+        append!(allStats, pointData)
+    end
+    return allStats
 end
 
 ################################################################################################################
@@ -279,11 +379,24 @@ function SpeciesPersistencePlot(param_i, param_lb, param_ub, model, baseParams, 
     return plot1
 end
 
-# plot coexistance pattern persistence as a function of a single changing parameter
-function PatternPersistencePlot(param_i, param_lb, param_ub, model, baseParams, resourceParams; landscapeGrain=0.025, init=CANONICAL_INIT, timespan=CANONICAL_TIMESPAN)
+# plot consumer proportional persistence as a function of a single changing parameter
+function ConsumerPersistencePlot(param_i, param_lb, param_ub, model, baseParams, resourceParams; landscapeGrain=0.025, init=CANONICAL_INIT, timespan=CANONICAL_TIMESPAN, pointFunction=ProportionalPersistencePoint)
     # first, get data
     ppData = ProportionalPersistenceData(param_i, param_lb, param_ub, model, baseParams, resourceParams,
-        landscapeGrain, init, timespan)
+        landscapeGrain, init, timespan; pointFunction=pointFunction)
+    # Viridis hex codes
+    custom_colors = ["#21908C", "#5DC863"]
+    # plot data
+    plot1 = plot(ppData.ParameterValue, ppData.PP_3 + ppData.PP_5, lw=5, markershape=:circle, ms=12, color=custom_colors[1]) # species 2
+    plot!(ppData.ParameterValue, ppData.PP_4 + ppData.PP_5, lw=5, markershape=:circle, ms=12, color=custom_colors[2]) # species 3
+    return plot1
+end
+
+# plot coexistance pattern persistence as a function of a single changing parameter
+function PatternPersistencePlot(param_i, param_lb, param_ub, model, baseParams, resourceParams; landscapeGrain=0.025, init=CANONICAL_INIT, timespan=CANONICAL_TIMESPAN, pointFunction=ProportionalPersistencePoint)
+    # first, get data
+    ppData = ProportionalPersistenceData(param_i, param_lb, param_ub, model, baseParams, resourceParams,
+        landscapeGrain, init, timespan; pointFunction=pointFunction)
     # Viridis hex codes
     custom_colors = ["#440154", "#3B528B", "#21908C", "#5DC863", "#FDE725"]
     # plot data
@@ -354,7 +467,7 @@ end
 
 function prettyPatternPlot!(p)
     plot!(p,
-        size=(2000, 1000),
+        size=(1500, 1000),
         grid=false,
         minorgrid=false,
         guidefontsize=20,

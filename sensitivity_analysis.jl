@@ -1,7 +1,7 @@
 using Revise
 using DataFrames
 using CSV
-using StatsBase
+using Random
 include(joinpath(@__DIR__, "plot_ODEFinal.jl"))
 include(joinpath(@__DIR__, "helper_functions.jl"))
 include(joinpath(@__DIR__, "CONSTANTS", "modelsInfo.jl"))
@@ -15,13 +15,24 @@ include(joinpath(@__DIR__, "CONSTANTS", "modelsInfo.jl"))
 # Notes:
 # 1) currently not checking againts different input parameters, timespans, grid extents or persistence thresholds
 
-# Read in parm data
+# Read in OG parm data
 # ParmSet1 = CSV.read("ParmSet1.csv", DataFrame)
-parmSample = ParmSet1[sample(1:nrow(ParmSet1), 300, replace=false), :]
+# parmSample = ParmSet1[sample(1:nrow(ParmSet1), 300, replace=false), :]
+# parmExample = Vector(parmSample[1, :])
+
+
+
+
+
+
+
+# set seed for sampling
+Random.seed!(416)
+
+# Read in better parm data
+ParmSet2 = CSV.read("ParmSet2.csv", DataFrame)
+parmSample = ParmSet2[randperm(nrow(ParmSet2))[1:50], :]
 parmExample = Vector(parmSample[1, :])
-
-# TODO: Parm sample should randomize everything, but still check against varying e and gamma for compatability.
-
 
 ###############################################################################################################
 # TARGET FUNCTIONS
@@ -35,7 +46,7 @@ function TargetResource_dispersalpersistencetradeoff()
 end
 
 # VERIFIED
-function TargetCommunity_resourcepersistencenotafectedbyconsumerpresence(parmRow)
+function TargetCommunity_resourcepersistencenotafectedbyconsumerpresence(parmRow; tol=0.01)
     # input check
     if length(parmRow) != 14
         error("{TargetCommunity_resourceper...}: input parameter list does not have a length of exactly 14.")
@@ -53,15 +64,18 @@ function TargetCommunity_resourcepersistencenotafectedbyconsumerpresence(parmRow
     dataO = ProportionalPersistencePoint(Omnivory!, parmRow[1:11], parmRow[12:14],
         0.05, CANONICAL_INIT, CANONICAL_TIMESPAN)
     # verify target claim
-    # println([1 - dataR[1], 1 - dataSFC[1], 1 - dataSFCGC[1], 1 - dataEC[1], 1 - dataO[1]])
-    return dataR[1] == dataSFC[1] == dataSFCGC[1] == dataEC[1] == dataO[1]
+    if !equal_within_tolerance([dataR[1], dataSFC[1], dataSFCGC[1], dataEC[1], dataO[1]]; tol)
+        println([dataR[1], dataSFC[1], dataSFCGC[1], dataEC[1], dataO[1]])
+        return false
+    end
+    return true
 end
 
 # VERIFIED
-function TargetFoodChains_species2persistencenotaffectedbyspecies3presence(parmRow)
+function TargetFoodChains_species2persistencenotaffectedbyspecies3presence(parmRow; tol=0.01)
     # input check
     if length(parmRow) != 14
-        error("{TargetFoodChains_species2per}: input parameter list does not have a length of exactly 14.")
+        error("{TargetFoodChains_species2per...}: input parameter list does not have a length of exactly 14.")
     end
     # species 3 absent
     control_init = copy(CANONICAL_INIT)
@@ -77,12 +91,14 @@ function TargetFoodChains_species2persistencenotaffectedbyspecies3presence(parmR
     dataSFCGC = ProportionalPersistencePoint(SimpleFoodChain_GlobalConsumers!, parmRow[1:11], parmRow[12:14],
         0.05, CANONICAL_INIT, CANONICAL_TIMESPAN)
     # verify target claim
-    # println([dataSFC_control[3] + dataSFC_control[5] , dataSFC[3] + dataSFC[5]])
-    # println("WAAAAA", [dataSFCGC_control[3] + dataSFCGC_control[5], dataSFCGC[3] + dataSFCGC[5]])
-    epsilon = 0.01
-    cSFC = dataSFC_control[3] + dataSFC_control[5] - (dataSFC[3] + dataSFC[5]) < epsilon
-    cSFCGC = dataSFCGC_control[3] + dataSFCGC_control[5] - (dataSFCGC[3] + dataSFCGC[5]) < epsilon
-    return cSFC && cSFCGC
+    cSFC = dataSFC_control[3] + dataSFC_control[5] - (dataSFC[3] + dataSFC[5]) < tol
+    cSFCGC = dataSFCGC_control[3] + dataSFCGC_control[5] - (dataSFCGC[3] + dataSFCGC[5]) < tol
+    if !(cSFC && cSFCGC)
+        println([dataSFC_control[3] + dataSFC_control[5], dataSFC[3] + dataSFC[5]])
+        println("SFCGC:::", [dataSFCGC_control[3] + dataSFCGC_control[5], dataSFCGC[3] + dataSFCGC[5]])
+        return false
+    end
+    return true
 end
 
 # VERIFIED
@@ -120,8 +136,11 @@ function TargetResource_resourcepersistanceaffectedmorebyethangamma(parmRow)
     # verify claim
     slope_E1 = mean(diff(dataR_E1.PP_2))
     slope_Gamma = mean(diff(dataR_Gamma.PP_2))
-    println([slope_E1, slope_Gamma])
-    return slope_E1 < slope_Gamma # checking that slope_E1 is "more negative"
+    if !(slope_E1 < slope_Gamma) # Note: checking that E1 slope is "more negative"
+        println([slope_E1, slope_Gamma])
+        return false
+    end
+    return true
 end
 
 # VERIFIED
@@ -202,8 +221,8 @@ end
 # TESTING FUNCTIONS
 ###############################################################################################################
 
-# <targetFunction> must output a boolean value ; <parmSet> is a 16-column dataframe
-function BinaryRobustnessAnalysis2(targetFunction, parmSet)
+# <targetFunction> must output a boolean value ; <parmSet> is a 14-column dataframe (no U, F)
+function BinaryRobustnessAnalysis(targetFunction, parmSet)
     # input checks
     if nrow(parmSet) == 0
         error("{BinaryRobustnessAnalysis}: inputted parameter set is empty.")
