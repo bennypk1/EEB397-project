@@ -8,5 +8,3 @@ This is the repository containing all the code and datasets used to complete a y
 
 Scripts in the `LEGACY` directory are no longer in active use, but contain code used in previous versions of the
 project. Scripts in `CONSTANTS` contain constant objects (such as lists of hex colors) useful for model visualization, for providing standardized model parameters, etc. Scripts in `SENSITIVITY ANALYSIS` are for running a sensitivity analysis accross multiple parameter combinations, as well as generating the parameter sets in the first place. Code scripts as well as datasets have self-explanatory names, and comments throughout describing their internal functionality.
-
-## Licence
